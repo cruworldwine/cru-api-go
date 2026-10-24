@@ -8,25 +8,25 @@ var replayOps = []replayOp{
 	{
 		id: "ping", method: "GET", path: "/ping", kind: "get", key: "",
 		call: func(ctx context.Context, c *Client, in *replayInput) (any, error) {
-			return c.Ping(ctx)
+			return c.Ping(ctx, in.opts...)
 		},
 	},
 	{
 		id: "listWarehouses", method: "GET", path: "/warehouses", kind: "list", key: "warehouses",
 		call: func(ctx context.Context, c *Client, in *replayInput) (any, error) {
-			return c.Warehouses.List(ctx)
+			return c.Warehouses.List(ctx, in.opts...)
 		},
 	},
 	{
 		id: "getWarehouse", method: "GET", path: "/warehouses/{code}", kind: "get", key: "warehouse",
 		call: func(ctx context.Context, c *Client, in *replayInput) (any, error) {
-			return c.Warehouses.Get(ctx, in.path("code"))
+			return c.Warehouses.Get(ctx, in.path("code"), in.opts...)
 		},
 	},
 	{
 		id: "listInbondWarehouses", method: "GET", path: "/warehouses/inbond", kind: "list", key: "inbond_warehouses",
 		call: func(ctx context.Context, c *Client, in *replayInput) (any, error) {
-			return c.InbondWarehouses.List(ctx)
+			return c.InbondWarehouses.List(ctx, in.opts...)
 		},
 	},
 	{
@@ -34,13 +34,13 @@ var replayOps = []replayOp{
 		call: func(ctx context.Context, c *Client, in *replayInput) (any, error) {
 			p := &InbondWarehousesSuggestParams{}
 			in.decodeBody(p)
-			return c.InbondWarehouses.Suggest(ctx, p)
+			return c.InbondWarehouses.Suggest(ctx, p, in.opts...)
 		},
 	},
 	{
 		id: "getInbondWarehouse", method: "GET", path: "/warehouses/inbond/{id}", kind: "get", key: "inbond_warehouse",
 		call: func(ctx context.Context, c *Client, in *replayInput) (any, error) {
-			return c.InbondWarehouses.Get(ctx, in.pathInt("id"))
+			return c.InbondWarehouses.Get(ctx, in.pathInt("id"), in.opts...)
 		},
 	},
 	{
@@ -52,13 +52,13 @@ var replayOps = []replayOp{
 			p.PackSize = in.str("pack_size")
 			p.Limit = in.int("limit")
 			p.Offset = in.int("offset")
-			return c.Wines.Search(ctx, p)
+			return c.Wines.Search(ctx, p, in.opts...)
 		},
 	},
 	{
 		id: "getWine", method: "GET", path: "/wines/{lwin18}", kind: "get", key: "wine",
 		call: func(ctx context.Context, c *Client, in *replayInput) (any, error) {
-			return c.Wines.Get(ctx, in.path("lwin18"))
+			return c.Wines.Get(ctx, in.path("lwin18"), in.opts...)
 		},
 	},
 	{
@@ -71,7 +71,7 @@ var replayOps = []replayOp{
 			p.Depth = in.int("depth")
 			p.IncludeMarketPrice = in.bool("include_market_price")
 			p.IncludeLastTrade = in.bool("include_last_trade")
-			return c.Market.List(ctx, p)
+			return c.Market.List(ctx, p, in.opts...)
 		},
 	},
 	{
@@ -81,7 +81,7 @@ var replayOps = []replayOp{
 			p.Depth = in.int("depth")
 			p.IncludeMarketPrice = in.bool("include_market_price")
 			p.IncludeLastTrade = in.bool("include_last_trade")
-			return c.Market.GetWine(ctx, in.path("lwin18"), p)
+			return c.Market.GetWine(ctx, in.path("lwin18"), p, in.opts...)
 		},
 	},
 	{
@@ -99,13 +99,13 @@ var replayOps = []replayOp{
 			p.DeliverableWarehouse = in.list("deliverable_warehouse")
 			p.IncludeMarketPrice = in.bool("include_market_price")
 			p.IncludeLastTrade = in.bool("include_last_trade")
-			return c.Market.ListBids(ctx, p)
+			return c.Market.ListBids(ctx, p, in.opts...)
 		},
 	},
 	{
 		id: "getMarketBid", method: "GET", path: "/market/bids/{code}", kind: "get", key: "bid",
 		call: func(ctx context.Context, c *Client, in *replayInput) (any, error) {
-			return c.Market.GetBid(ctx, in.path("code"))
+			return c.Market.GetBid(ctx, in.path("code"), in.opts...)
 		},
 	},
 	{
@@ -119,7 +119,7 @@ var replayOps = []replayOp{
 			p.DeliverableWarehouse = in.list("deliverable_warehouse")
 			p.IncludeMarketPrice = in.bool("include_market_price")
 			p.IncludeLastTrade = in.bool("include_last_trade")
-			return c.Market.GetWineBids(ctx, in.path("lwin18"), p)
+			return c.Market.GetWineBids(ctx, in.path("lwin18"), p, in.opts...)
 		},
 	},
 	{
@@ -134,13 +134,13 @@ var replayOps = []replayOp{
 			p.Depth = in.int("depth")
 			p.IncludeMarketPrice = in.bool("include_market_price")
 			p.IncludeLastTrade = in.bool("include_last_trade")
-			return c.Market.ListOffers(ctx, p)
+			return c.Market.ListOffers(ctx, p, in.opts...)
 		},
 	},
 	{
 		id: "getMarketOffer", method: "GET", path: "/market/offers/{code}", kind: "get", key: "offer",
 		call: func(ctx context.Context, c *Client, in *replayInput) (any, error) {
-			return c.Market.GetOffer(ctx, in.path("code"))
+			return c.Market.GetOffer(ctx, in.path("code"), in.opts...)
 		},
 	},
 	{
@@ -152,13 +152,13 @@ var replayOps = []replayOp{
 			p.Depth = in.int("depth")
 			p.IncludeMarketPrice = in.bool("include_market_price")
 			p.IncludeLastTrade = in.bool("include_last_trade")
-			return c.Market.GetWineOffers(ctx, in.path("lwin18"), p)
+			return c.Market.GetWineOffers(ctx, in.path("lwin18"), p, in.opts...)
 		},
 	},
 	{
 		id: "getPhoto", method: "GET", path: "/photos/{id}", kind: "binary", key: "",
 		call: func(ctx context.Context, c *Client, in *replayInput) (any, error) {
-			return c.Photos.Get(ctx, in.path("id"))
+			return c.Photos.Get(ctx, in.path("id"), in.opts...)
 		},
 	},
 	{
@@ -170,7 +170,7 @@ var replayOps = []replayOp{
 			p.ClientRef = in.str("client_ref")
 			p.Limit = in.int("limit")
 			p.Offset = in.int("offset")
-			return c.Bids.List(ctx, p)
+			return c.Bids.List(ctx, p, in.opts...)
 		},
 	},
 	{
@@ -178,13 +178,13 @@ var replayOps = []replayOp{
 		call: func(ctx context.Context, c *Client, in *replayInput) (any, error) {
 			p := &BidsPlaceParams{}
 			in.decodeBody(p)
-			return c.Bids.Place(ctx, p)
+			return c.Bids.Place(ctx, p, in.opts...)
 		},
 	},
 	{
 		id: "getBid", method: "GET", path: "/bids/{code}", kind: "get", key: "bid",
 		call: func(ctx context.Context, c *Client, in *replayInput) (any, error) {
-			return c.Bids.Get(ctx, in.path("code"))
+			return c.Bids.Get(ctx, in.path("code"), in.opts...)
 		},
 	},
 	{
@@ -192,7 +192,7 @@ var replayOps = []replayOp{
 		call: func(ctx context.Context, c *Client, in *replayInput) (any, error) {
 			p := &BidsUpdateParams{}
 			in.decodeBody(p)
-			return c.Bids.Update(ctx, in.path("code"), p)
+			return c.Bids.Update(ctx, in.path("code"), p, in.opts...)
 		},
 	},
 	{
@@ -200,7 +200,7 @@ var replayOps = []replayOp{
 		call: func(ctx context.Context, c *Client, in *replayInput) (any, error) {
 			p := &BidsCancelParams{}
 			in.decodeBody(p)
-			return c.Bids.Cancel(ctx, in.path("code"), p)
+			return c.Bids.Cancel(ctx, in.path("code"), p, in.opts...)
 		},
 	},
 	{
@@ -208,7 +208,7 @@ var replayOps = []replayOp{
 		call: func(ctx context.Context, c *Client, in *replayInput) (any, error) {
 			p := &BidsRenewParams{}
 			in.decodeBody(p)
-			return c.Bids.Renew(ctx, in.path("code"), p)
+			return c.Bids.Renew(ctx, in.path("code"), p, in.opts...)
 		},
 	},
 	{
@@ -225,7 +225,7 @@ var replayOps = []replayOp{
 			p.ConditionStatus = in.list("condition_status")
 			p.Limit = in.int("limit")
 			p.Offset = in.int("offset")
-			return c.Offers.List(ctx, p)
+			return c.Offers.List(ctx, p, in.opts...)
 		},
 	},
 	{
@@ -233,13 +233,13 @@ var replayOps = []replayOp{
 		call: func(ctx context.Context, c *Client, in *replayInput) (any, error) {
 			p := &OffersCreateParams{}
 			in.decodeBody(p)
-			return c.Offers.Create(ctx, p)
+			return c.Offers.Create(ctx, p, in.opts...)
 		},
 	},
 	{
 		id: "getOffer", method: "GET", path: "/offers/{code}", kind: "get", key: "offer",
 		call: func(ctx context.Context, c *Client, in *replayInput) (any, error) {
-			return c.Offers.Get(ctx, in.path("code"))
+			return c.Offers.Get(ctx, in.path("code"), in.opts...)
 		},
 	},
 	{
@@ -247,7 +247,7 @@ var replayOps = []replayOp{
 		call: func(ctx context.Context, c *Client, in *replayInput) (any, error) {
 			p := &OffersUpdateParams{}
 			in.decodeBody(p)
-			return c.Offers.Update(ctx, in.path("code"), p)
+			return c.Offers.Update(ctx, in.path("code"), p, in.opts...)
 		},
 	},
 	{
@@ -255,7 +255,7 @@ var replayOps = []replayOp{
 		call: func(ctx context.Context, c *Client, in *replayInput) (any, error) {
 			p := &OffersRemoveParams{}
 			in.decodeBody(p)
-			return c.Offers.Remove(ctx, in.path("code"), p)
+			return c.Offers.Remove(ctx, in.path("code"), p, in.opts...)
 		},
 	},
 	{
@@ -273,7 +273,7 @@ var replayOps = []replayOp{
 			p.IsListed = in.bool("is_listed")
 			p.Limit = in.int("limit")
 			p.Offset = in.int("offset")
-			return c.Portfolio.List(ctx, p)
+			return c.Portfolio.List(ctx, p, in.opts...)
 		},
 	},
 	{
@@ -286,7 +286,7 @@ var replayOps = []replayOp{
 			p.Direction = in.str("direction")
 			p.Limit = in.int("limit")
 			p.Offset = in.int("offset")
-			return c.Trades.ListPurchases(ctx, p)
+			return c.Trades.ListPurchases(ctx, p, in.opts...)
 		},
 	},
 	{
@@ -300,7 +300,7 @@ var replayOps = []replayOp{
 			p.Direction = in.str("direction")
 			p.Limit = in.int("limit")
 			p.Offset = in.int("offset")
-			return c.Trades.ListSales(ctx, p)
+			return c.Trades.ListSales(ctx, p, in.opts...)
 		},
 	},
 	{
@@ -308,7 +308,7 @@ var replayOps = []replayOp{
 		call: func(ctx context.Context, c *Client, in *replayInput) (any, error) {
 			p := &MarketBuyOfferParams{}
 			in.decodeBody(p)
-			return c.Market.BuyOffer(ctx, in.path("code"), p)
+			return c.Market.BuyOffer(ctx, in.path("code"), p, in.opts...)
 		},
 	},
 	{
@@ -316,13 +316,13 @@ var replayOps = []replayOp{
 		call: func(ctx context.Context, c *Client, in *replayInput) (any, error) {
 			p := &MarketSellToBidParams{}
 			in.decodeBody(p)
-			return c.Market.SellToBid(ctx, in.path("code"), p)
+			return c.Market.SellToBid(ctx, in.path("code"), p, in.opts...)
 		},
 	},
 	{
 		id: "listInbondAddresses", method: "GET", path: "/addresses/inbond", kind: "list", key: "inbond_addresses",
 		call: func(ctx context.Context, c *Client, in *replayInput) (any, error) {
-			return c.InbondAddresses.List(ctx)
+			return c.InbondAddresses.List(ctx, in.opts...)
 		},
 	},
 	{
@@ -330,7 +330,7 @@ var replayOps = []replayOp{
 		call: func(ctx context.Context, c *Client, in *replayInput) (any, error) {
 			p := &InbondAddressesAddParams{}
 			in.decodeBody(p)
-			return c.InbondAddresses.Add(ctx, p)
+			return c.InbondAddresses.Add(ctx, p, in.opts...)
 		},
 	},
 	{
@@ -338,25 +338,25 @@ var replayOps = []replayOp{
 		call: func(ctx context.Context, c *Client, in *replayInput) (any, error) {
 			p := &InbondAddressesRemoveParams{}
 			in.decodeBody(p)
-			return c.InbondAddresses.Remove(ctx, in.pathInt("id"), p)
+			return c.InbondAddresses.Remove(ctx, in.pathInt("id"), p, in.opts...)
 		},
 	},
 	{
 		id: "getConfirmation", method: "GET", path: "/confirmations/{code}", kind: "get", key: "confirmation",
 		call: func(ctx context.Context, c *Client, in *replayInput) (any, error) {
-			return c.Confirmations.Get(ctx, in.path("code"))
+			return c.Confirmations.Get(ctx, in.path("code"), in.opts...)
 		},
 	},
 	{
 		id: "confirmInstruction", method: "POST", path: "/confirmations/{code}", kind: "confirm", key: "",
 		call: func(ctx context.Context, c *Client, in *replayInput) (any, error) {
-			return c.Confirmations.Confirm(ctx, in.path("code"))
+			return c.Confirmations.Confirm(ctx, in.path("code"), in.opts...)
 		},
 	},
 	{
 		id: "cancelConfirmation", method: "DELETE", path: "/confirmations/{code}", kind: "empty", key: "",
 		call: func(ctx context.Context, c *Client, in *replayInput) (any, error) {
-			return nil, c.Confirmations.Cancel(ctx, in.path("code"))
+			return nil, c.Confirmations.Cancel(ctx, in.path("code"), in.opts...)
 		},
 	},
 }

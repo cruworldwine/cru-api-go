@@ -21,10 +21,10 @@ type PhotosService struct {
 // NOT_FOUND / 404.
 //
 // GET /photos/{id}.
-func (s *PhotosService) Get(ctx context.Context, id string) ([]byte, error) {
+func (s *PhotosService) Get(ctx context.Context, id string, opts ...RequestOption) ([]byte, error) {
 	urlPath, err := expandPath("/photos/{id}", "id", id)
 	if err != nil {
 		return nil, err
 	}
-	return doBinary(ctx, s.client, endpoint{method: http.MethodGet, path: urlPath})
+	return doBinary(ctx, s.client, endpoint{method: http.MethodGet, path: urlPath, opts: opts})
 }

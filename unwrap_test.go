@@ -153,7 +153,10 @@ func TestPagingStops(t *testing.T) {
 	s = newServer(t, pagedBids(-1))
 	c, _ = partner(t, s)
 	page, _ = c.Bids.List(context.Background(), nil)
-	for range page.All(context.Background()) {
+	for _, err := range page.All(context.Background()) {
+		if err != nil {
+			t.Fatal(err)
+		}
 		break
 	}
 	if len(s.requests()) != 1 {

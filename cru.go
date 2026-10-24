@@ -23,6 +23,16 @@
 // app's staged instruction. Client.Do calls any endpoint, including ones this SDK does not
 // know yet, and returns the envelope.
 //
+// Every method also takes trailing RequestOptions, which change that call only: extra headers
+// (WithRequestHeader), its timeout and retries (WithRequestTimeout, WithRequestMaxRetries),
+// parameters this SDK does not know yet (WithExtraQuery, WithExtraBodyField), and
+// WithResponseInto, which reports the answer's status, headers and request id.
+//
+// # Logging
+//
+// WithLogger gives the client a *slog.Logger. Each attempt is logged at Debug and each retry
+// and token refresh at Info. Credentials, tokens, query strings and bodies are never logged.
+//
 // # Retries and idempotency
 //
 // Reads, and a partner credential's writes, are retried on network errors, timeouts, 429, 500,
@@ -58,8 +68,6 @@ package cru
 
 // Version is this SDK's version, sent in the User-Agent header.
 const Version = "0.1.1"
-
-const userAgent = "cruworldwine-go/" + Version
 
 // String returns a pointer to v, for an optional parameter.
 func String(v string) *string { return &v }

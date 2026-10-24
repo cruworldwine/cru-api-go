@@ -26,8 +26,8 @@ type WarehousesService struct {
 // warehouse_code.
 //
 // GET /warehouses. Scope: meta:read.
-func (s *WarehousesService) List(ctx context.Context) ([]Warehouse, error) {
-	return getList[Warehouse](ctx, s.client, endpoint{method: http.MethodGet, path: "/warehouses", key: "warehouses"})
+func (s *WarehousesService) List(ctx context.Context, opts ...RequestOption) ([]Warehouse, error) {
+	return getList[Warehouse](ctx, s.client, endpoint{method: http.MethodGet, path: "/warehouses", key: "warehouses", opts: opts})
 }
 
 // Get retrieves a warehouse.
@@ -36,12 +36,12 @@ func (s *WarehousesService) List(ctx context.Context) ([]Warehouse, error) {
 // instructions, and whether your inbond wine sells through it.
 //
 // GET /warehouses/{code}. Scope: meta:read.
-func (s *WarehousesService) Get(ctx context.Context, code string) (*Warehouse, error) {
+func (s *WarehousesService) Get(ctx context.Context, code string, opts ...RequestOption) (*Warehouse, error) {
 	urlPath, err := expandPath("/warehouses/{code}", "code", code)
 	if err != nil {
 		return nil, err
 	}
-	return getOne[Warehouse](ctx, s.client, endpoint{method: http.MethodGet, path: urlPath, key: "warehouse"})
+	return getOne[Warehouse](ctx, s.client, endpoint{method: http.MethodGet, path: urlPath, key: "warehouse", opts: opts})
 }
 
 // Warehouse is returned by WarehousesService.Get and WarehousesService.List.

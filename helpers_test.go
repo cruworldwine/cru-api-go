@@ -25,7 +25,9 @@ const (
 
 func TestMain(m *testing.M) {
 	for _, name := range []string{"CRU_CLIENT_KEY", "CRU_CLIENT_SECRET", "CRU_ACCESS_TOKEN", "CRU_MARKET", "CRU_BASE_URL"} {
-		os.Unsetenv(name)
+		if err := os.Unsetenv(name); err != nil {
+			panic(err)
+		}
 	}
 	os.Exit(m.Run())
 }

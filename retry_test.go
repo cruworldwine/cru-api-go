@@ -150,6 +150,24 @@ func TestBackoff(t *testing.T) {
 	}
 }
 
+func TestRetryAfterHTTPDate(t *testing.T) {
+	at := func(d time.Duration) http.Header {
+		return http.Header{"Retry-After": {time.Now().Add(d).UTC().Format(http.TimeFormat)}}
+	}
+	if d, ok := retryAfter(at(time.Hour), nil); !ok || d != maxRetryAfter {
+		t.Errorf("a date an hour away: %v, %v", d, ok)
+	}
+	if d, ok := retryAfter(at(-time.Hour), nil); !ok || d != 0 {
+		t.Errorf("a date in the past: %v, %v", d, ok)
+	}
+	if d, ok := retryAfter(at(10*time.Second), nil); !ok || d <= 8*time.Second || d > 10*time.Second {
+		t.Errorf("a date 10s away: %v, %v", d, ok)
+	}
+	if _, ok := retryAfter(http.Header{"Retry-After": {"soon"}}, nil); ok {
+		t.Error("an unreadable Retry-After was taken")
+	}
+}
+
 // flakyTransport fails the first n round trips with a network error.
 type flakyTransport struct {
 	n     int32

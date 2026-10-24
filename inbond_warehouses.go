@@ -26,8 +26,8 @@ type InbondWarehousesService struct {
 // GET /warehouses, by warehouse_code: an inbond_address_id is never a warehouse_code.
 //
 // GET /warehouses/inbond. Scope: meta:read.
-func (s *InbondWarehousesService) List(ctx context.Context) ([]InbondWarehouse, error) {
-	return getList[InbondWarehouse](ctx, s.client, endpoint{method: http.MethodGet, path: "/warehouses/inbond", key: "inbond_warehouses"})
+func (s *InbondWarehousesService) List(ctx context.Context, opts ...RequestOption) ([]InbondWarehouse, error) {
+	return getList[InbondWarehouse](ctx, s.client, endpoint{method: http.MethodGet, path: "/warehouses/inbond", key: "inbond_warehouses", opts: opts})
 }
 
 // InbondWarehousesSuggestParams holds the parameters of InbondWarehousesService.Suggest. Required
@@ -77,12 +77,12 @@ type InbondWarehousesSuggestParams struct {
 // street, city and postcode.
 //
 // POST /warehouses/inbond. Scope: warehouses:suggest.
-func (s *InbondWarehousesService) Suggest(ctx context.Context, params *InbondWarehousesSuggestParams) (*Write[InbondWarehouseResult], error) {
+func (s *InbondWarehousesService) Suggest(ctx context.Context, params *InbondWarehousesSuggestParams, opts ...RequestOption) (*Write[InbondWarehouseResult], error) {
 	var body any = emptyObject
 	if params != nil {
 		body = params
 	}
-	return doWrite[InbondWarehouseResult](ctx, s.client, endpoint{method: http.MethodPost, path: "/warehouses/inbond", body: body})
+	return doWrite[InbondWarehouseResult](ctx, s.client, endpoint{method: http.MethodPost, path: "/warehouses/inbond", body: body, opts: opts})
 }
 
 // Get retrieves an inbond warehouse.
@@ -91,12 +91,12 @@ func (s *InbondWarehousesService) Suggest(ctx context.Context, params *InbondWar
 // Bond site code, and whether it is bonded.
 //
 // GET /warehouses/inbond/{id}. Scope: meta:read.
-func (s *InbondWarehousesService) Get(ctx context.Context, id int64) (*InbondWarehouse, error) {
+func (s *InbondWarehousesService) Get(ctx context.Context, id int64, opts ...RequestOption) (*InbondWarehouse, error) {
 	urlPath, err := expandPath("/warehouses/inbond/{id}", "id", strconv.FormatInt(id, 10))
 	if err != nil {
 		return nil, err
 	}
-	return getOne[InbondWarehouse](ctx, s.client, endpoint{method: http.MethodGet, path: urlPath, key: "inbond_warehouse"})
+	return getOne[InbondWarehouse](ctx, s.client, endpoint{method: http.MethodGet, path: urlPath, key: "inbond_warehouse", opts: opts})
 }
 
 // InbondWarehouse is returned by InbondWarehousesService.Get and InbondWarehousesService.List, and

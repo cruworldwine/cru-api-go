@@ -21,6 +21,7 @@ type endpoint struct {
 	body   any
 	key    string // the key of data the result is under; empty for data itself
 	accept string
+	opts   []RequestOption
 }
 
 // emptyObject is the body of a write that has no parameters.
@@ -71,7 +72,7 @@ func getOne[T any](ctx context.Context, c *Client, e endpoint) (*T, error) {
 	}
 	v := new(T)
 	if err := unmarshal(data, v); err != nil {
-		return nil, fmt.Errorf("%w: %s %s: %v", ErrUnexpectedResponse, e.method, e.path, err)
+		return nil, fmt.Errorf("%w: %s %s: %w", ErrUnexpectedResponse, e.method, e.path, err)
 	}
 	return v, nil
 }
@@ -88,7 +89,7 @@ func itemsOf[T any](e endpoint, data json.RawMessage) ([]T, error) {
 		if _, obj := splitObject(raw); obj != nil && len(obj) == 0 {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("%w: %s %s: data.%s is not a list: %v", ErrUnexpectedResponse, e.method, e.path, e.key, err)
+		return nil, fmt.Errorf("%w: %s %s: data.%s is not a list: %w", ErrUnexpectedResponse, e.method, e.path, e.key, err)
 	}
 	return items, nil
 }

@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -17,6 +19,7 @@ const (
 	defaultMarket     = "uk"
 	defaultMaxRetries = 2
 	defaultTimeout    = 30 * time.Second
+	maxRedirects      = 10
 )
 
 // Client calls the Cru Trading API. Create one with NewClient; it is safe for concurrent use.
@@ -34,6 +37,8 @@ type Client struct {
 	httpClient   *http.Client
 	maxRetries   int
 	timeout      time.Duration
+	userAgent    string
+	logger       *slog.Logger
 	sleep        func(context.Context, time.Duration) error
 
 	mu                sync.RWMutex
@@ -73,6 +78,8 @@ type config struct {
 	httpClient              *http.Client
 	maxRetries              *int
 	timeout                 *time.Duration
+	logger                  *slog.Logger
+	appInfo                 string
 }
 
 // WithClientKey authenticates with a partner credential, sent as the CLIENT-KEY and
@@ -101,7 +108,8 @@ func WithOAuthRefresh(refreshToken, clientID, clientSecret string, onRefresh fun
 }
 
 // WithMarket picks the market's host, https://{market}.cruworldwine.com/api/v1. It defaults
-// to uk. A credential works on its own market only.
+// to uk. A credential works on its own market only. A market is a code such as uk or hk, in
+// any case; NewClient refuses anything else.
 func WithMarket(market string) Option {
 	return func(c *config) { c.market = market }
 }
@@ -113,8 +121,40 @@ func WithBaseURL(baseURL string) Option {
 
 // WithHTTPClient sets the HTTP client requests are sent with. It defaults to a client using
 // http.DefaultTransport.
+//
+// The client uses a copy of hc whose redirect policy refuses a redirect to another host, or
+// from https to http, since that would send the credentials there; within the same host it
+// defers to hc.CheckRedirect.
 func WithHTTPClient(hc *http.Client) Option {
 	return func(c *config) { c.httpClient = hc }
+}
+
+// WithLogger logs each request the client sends to l: every attempt at Debug, with its method,
+// path, status, attempt number, duration and request id, and every retry and access token
+// refresh at Info. Credentials, tokens, query strings and bodies are never logged. A nil l, the
+// default, logs nothing.
+func WithLogger(l *slog.Logger) Option {
+	return func(c *config) { c.logger = l }
+}
+
+// WithAppInfo names the application built on the SDK in the User-Agent header, as
+// "name/version (url)" after the SDK's own product, so Cru can tell its traffic apart. version
+// and url may be empty.
+func WithAppInfo(name, version, url string) Option {
+	return func(c *config) {
+		name, version, url = headerText(name), headerText(version), headerText(url)
+		if name == "" {
+			c.appInfo = ""
+			return
+		}
+		c.appInfo = name
+		if version != "" {
+			c.appInfo += "/" + version
+		}
+		if url != "" {
+			c.appInfo += " (" + url + ")"
+		}
+	}
 }
 
 // WithMaxRetries sets how many times a failed read, or partner write, is retried. It defaults
@@ -138,7 +178,9 @@ func WithTimeout(d time.Duration) Option {
 func NewClient(opts ...Option) (*Client, error) {
 	var cfg config
 	for _, opt := range opts {
-		opt(&cfg)
+		if opt != nil {
+			opt(&cfg)
+		}
 	}
 	explicitKey := cfg.clientKey != "" && cfg.clientSecret != ""
 	if cfg.accessToken == "" {
@@ -153,12 +195,15 @@ func NewClient(opts ...Option) (*Client, error) {
 		return nil, errors.New("cru: give a client key and secret (WithClientKey or CRU_CLIENT_KEY and CRU_CLIENT_SECRET), or an access token (WithAccessToken or CRU_ACCESS_TOKEN)")
 	}
 
-	market := orEnv(cfg.market, "CRU_MARKET")
-	if market == "" {
-		market = defaultMarket
-	}
 	base := strings.TrimRight(orEnv(cfg.baseURL, "CRU_BASE_URL"), "/")
 	if base == "" {
+		market := strings.ToLower(orEnv(cfg.market, "CRU_MARKET"))
+		if market == "" {
+			market = defaultMarket
+		}
+		if !isMarketCode(market) {
+			return nil, fmt.Errorf("cru: %q is not a market code such as uk", market)
+		}
 		base = "https://" + market + ".cruworldwine.com/api/v1"
 	}
 	u, err := url.Parse(base)
@@ -172,18 +217,17 @@ func NewClient(opts ...Option) (*Client, error) {
 		partner:           partner,
 		clientKey:         cfg.clientKey,
 		clientSecret:      cfg.clientSecret,
-		httpClient:        cfg.httpClient,
+		httpClient:        guardRedirects(cfg.httpClient),
 		maxRetries:        defaultMaxRetries,
 		timeout:           defaultTimeout,
+		userAgent:         userAgent(cfg.appInfo),
+		logger:            cfg.logger,
 		sleep:             sleep,
 		accessToken:       cfg.accessToken,
 		refreshToken:      cfg.refreshToken,
 		oauthClientID:     cfg.oauthClientID,
 		oauthClientSecret: cfg.oauthClientSecret,
 		onRefresh:         cfg.onRefresh,
-	}
-	if c.httpClient == nil {
-		c.httpClient = &http.Client{}
 	}
 	if cfg.maxRetries != nil {
 		c.maxRetries = max(*cfg.maxRetries, 0)
@@ -202,12 +246,92 @@ func orEnv(v, name string) string {
 	return os.Getenv(name)
 }
 
+// isMarketCode accepts a DNS label, so a market can only ever pick a host under cruworldwine.com.
+func isMarketCode(s string) bool {
+	if len(s) == 0 || len(s) > 63 || s[0] == '-' || s[len(s)-1] == '-' {
+		return false
+	}
+	for _, r := range s {
+		if (r < 'a' || r > 'z') && (r < '0' || r > '9') && r != '-' {
+			return false
+		}
+	}
+	return true
+}
+
+// userAgent is "cruworldwine-go/<Version> go/<go version> (<GOOS>; <GOARCH>)", then the app's.
+func userAgent(app string) string {
+	ua := "cruworldwine-go/" + Version + " go/" + goVersion() + " (" + runtime.GOOS + "; " + runtime.GOARCH + ")"
+	if app != "" {
+		ua += " " + app
+	}
+	return ua
+}
+
+// goVersion is runtime.Version() without its "go" prefix and anything after a space, such as
+// "1.23.4"; a development toolchain is "devel".
+func goVersion() string {
+	v, _, _ := strings.Cut(runtime.Version(), " ")
+	if strings.HasPrefix(v, "devel") {
+		return "devel"
+	}
+	return strings.TrimPrefix(v, "go")
+}
+
+// headerText drops the characters a header value cannot carry.
+func headerText(s string) string {
+	return strings.TrimSpace(strings.Map(func(r rune) rune {
+		if r < 0x20 || r == 0x7f {
+			return -1
+		}
+		return r
+	}, s))
+}
+
+var errRedirect = errors.New("cru: refusing a redirect to another host, or from https to http, which would send the credentials there")
+
+// guardRedirects returns a copy of hc, or of a default client, that refuses to send the
+// credentials to another host by following a redirect.
+func guardRedirects(hc *http.Client) *http.Client {
+	guarded := &http.Client{}
+	if hc != nil {
+		*guarded = *hc
+	}
+	next := guarded.CheckRedirect
+	guarded.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		first := via[0].URL
+		if !strings.EqualFold(req.URL.Host, first.Host) || (first.Scheme == "https" && req.URL.Scheme != "https") {
+			return errRedirect
+		}
+		if next != nil {
+			return next(req, via)
+		}
+		if len(via) >= maxRedirects {
+			return fmt.Errorf("cru: stopped after %d redirects", maxRedirects)
+		}
+		return nil
+	}
+	return guarded
+}
+
 // BaseURL returns the base URL requests are sent to, such as https://uk.cruworldwine.com/api/v1.
 func (c *Client) BaseURL() string { return c.baseURL }
 
 // IsPartner reports whether the client uses a partner credential, whose writes run at once,
 // rather than a connected app's access token, whose writes are staged.
 func (c *Client) IsPartner() bool { return c.partner }
+
+// String describes the client without its credentials, so printing one never leaks them.
+func (c *Client) String() string {
+	kind := "connected app"
+	if c.partner {
+		kind = "partner credential"
+	}
+	return "cru.Client(" + c.baseURL + ", " + kind + ")"
+}
+
+// GoString is String, so %#v never prints the credentials either.
+func (c *Client) GoString() string { return c.String() }
 
 // Response is the envelope of a call made with Client.Do.
 type Response struct {
@@ -230,13 +354,13 @@ type Response struct {
 //
 // path is relative to the base URL, such as /bids. body, if not nil, is sent as JSON: a
 // []byte or json.RawMessage as it is, anything else marshalled. It is handled like every other
-// call: an error answer is an *APIError, reads and partner writes are retried, and a partner
-// write gets a reference when its body has none.
-func (c *Client) Do(ctx context.Context, method, path string, query url.Values, body any) (*Response, error) {
+// call: an error answer is an *APIError, reads and partner writes are retried, a partner
+// write gets a reference when its body has none, and opts apply.
+func (c *Client) Do(ctx context.Context, method, path string, query url.Values, body any, opts ...RequestOption) (*Response, error) {
 	if !strings.HasPrefix(path, "/") {
 		path = "/" + path
 	}
-	resp, err := c.call(ctx, endpoint{method: strings.ToUpper(method), path: path, query: query, body: body})
+	resp, err := c.call(ctx, endpoint{method: strings.ToUpper(method), path: path, query: query, body: body, opts: opts})
 	if err != nil {
 		return nil, err
 	}
