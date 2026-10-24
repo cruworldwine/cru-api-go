@@ -1,0 +1,83 @@
+# golangci-lint v2. CI runs the version pinned in .github/workflows/ci.yml; locally:
+#
+#   go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0 run
+version: "2"
+
+run:
+  tests: true
+
+linters:
+  default: none
+  enable:
+    - bodyclose
+    - errcheck
+    - errorlint
+    - gosec
+    - govet
+    - ineffassign
+    - misspell
+    - nilerr
+    - noctx
+    - revive
+    - staticcheck
+    - unconvert
+    - unused
+    - usestdlibvars
+  settings:
+    govet:
+      enable-all: true
+      disable:
+        # Reordering fields for alignment would put the models' fields out of the spec's order,
+        # which is the order their docs read in.
+        - fieldalignment
+    misspell:
+      # The invented wines in the tests are French: Chateau Exemple.
+      ignore-rules: [exemple]
+    revive:
+      rules:
+        - name: exported
+          arguments: [checkPrivateReceivers, sayRepetitiveInsteadOfStutters]
+        - name: package-comments
+        - name: blank-imports
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: dot-imports
+        - name: error-return
+        - name: error-strings
+        - name: error-naming
+        - name: errorf
+        - name: increment-decrement
+        - name: indent-error-flow
+        - name: range
+        - name: receiver-naming
+        - name: redefines-builtin-id
+        - name: superfluous-else
+        - name: time-naming
+        - name: unexported-return
+        - name: unreachable-code
+        - name: var-declaration
+        - name: var-naming
+  exclusions:
+    # Generated files are linted like the rest; the rules below say where a rule does not apply.
+    generated: disable
+    rules:
+      # values.go (generated) holds the API's error codes and enum values, such as
+      # ErrorCodeAuthInvalidCredentials = "AUTH_INVALID_CREDENTIALS": names of things, which G101
+      # takes for credentials because of the words in them.
+      - path: ^values\.go$
+        linters: [gosec]
+        text: G101
+      # The tests spell HTTP statuses and methods as the API's docs do: 404, "POST".
+      - path: _test\.go$
+        linters: [usestdlibvars]
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/cruworldwine/cru-api-go
+  exclusions:
+    generated: disable

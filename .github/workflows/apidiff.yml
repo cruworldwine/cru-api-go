@@ -1,0 +1,61 @@
+name: API compatibility
+
+# Reports the exported API changes a pull request makes against its base branch, and fails on an
+# incompatible one unless the pull request carries the breaking-change label.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apidiff:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      MODULE: github.com/cruworldwine/cru-api-go
+      BASE_REF: ${{ github.base_ref }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+          check-latest: true
+          cache: false
+      - name: Install apidiff
+        run: GOBIN="$RUNNER_TEMP/bin" go install golang.org/x/exp/cmd/apidiff@v0.0.0-20261014143641-f0251eb4aa3e
+      - name: Compare with the base branch
+        run: |
+          apidiff="$RUNNER_TEMP/bin/apidiff"
+          git worktree add "$RUNNER_TEMP/base" "origin/${BASE_REF}"
+          (cd "$RUNNER_TEMP/base" && "$apidiff" -m -w "$RUNNER_TEMP/base.api" "$MODULE")
+          "$apidiff" -m -w "$RUNNER_TEMP/head.api" "$MODULE"
+          "$apidiff" -m "$RUNNER_TEMP/base.api" "$RUNNER_TEMP/head.api" > "$RUNNER_TEMP/changes.txt"
+          "$apidiff" -m -incompatible "$RUNNER_TEMP/base.api" "$RUNNER_TEMP/head.api" > "$RUNNER_TEMP/incompatible.txt"
+          {
+            echo "## Exported API changes against ${BASE_REF}"
+            echo
+            if [ -s "$RUNNER_TEMP/changes.txt" ]; then
+              echo '```'
+              cat "$RUNNER_TEMP/changes.txt"
+              echo '```'
+            else
+              echo "None."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          cat "$RUNNER_TEMP/changes.txt"
+      - name: Refuse incompatible changes without the breaking-change label
+        if: ${{ !contains(github.event.pull_request.labels.*.name, 'breaking-change') }}
+        run: |
+          if [ -s "$RUNNER_TEMP/incompatible.txt" ]; then
+            echo "::error::This pull request changes the exported API incompatibly (see the job summary). If that is intended, add the breaking-change label and a CHANGELOG entry."
+            exit 1
+          fi
