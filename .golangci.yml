@@ -1,6 +1,4 @@
-# golangci-lint v2. CI runs the version pinned in .github/workflows/ci.yml; locally:
-#
-#   go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0 run
+# golangci-lint v2, run with make lint at the version the Makefile pins, locally and in CI.
 version: "2"
 
 run:
@@ -61,10 +59,10 @@ linters:
     # Generated files are linted like the rest; the rules below say where a rule does not apply.
     generated: disable
     rules:
-      # values.go (generated) holds the API's error codes and enum values, such as
+      # cru/values.go (generated) holds the API's error codes and enum values, such as
       # ErrorCodeAuthInvalidCredentials = "AUTH_INVALID_CREDENTIALS": names of things, which G101
       # takes for credentials because of the words in them.
-      - path: ^values\.go$
+      - path: ^cru/values\.go$
         linters: [gosec]
         text: G101
       # The tests spell HTTP statuses and methods as the API's docs do: 404, "POST".
