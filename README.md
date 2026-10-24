@@ -4,12 +4,13 @@
   </a>
 </p>
 
-<p align="center">
-  <a href="https://github.com/cruworldwine/cru-api-go/actions/workflows/ci.yml"><img src="https://github.com/cruworldwine/cru-api-go/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="https://pkg.go.dev/github.com/cruworldwine/cru-api-go/cru"><img src="https://pkg.go.dev/badge/github.com/cruworldwine/cru-api-go/cru.svg" alt="Go Reference"></a>
-</p>
-
 # Cru Trading API for Go
+
+[![CI](https://github.com/cruworldwine/cru-api-go/actions/workflows/ci.yml/badge.svg)](https://github.com/cruworldwine/cru-api-go/actions/workflows/ci.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/cruworldwine/cru-api-go/cru.svg)](https://pkg.go.dev/github.com/cruworldwine/cru-api-go/cru)
+[![Release](https://img.shields.io/github/v/tag/cruworldwine/cru-api-go.svg?sort=semver&label=release)](https://github.com/cruworldwine/cru-api-go/tags)
+[![Go version](https://img.shields.io/github/go-mod/go-version/cruworldwine/cru-api-go.svg)](https://github.com/cruworldwine/cru-api-go/blob/main/go.mod)
+[![License](https://img.shields.io/github/license/cruworldwine/cru-api-go.svg)](https://github.com/cruworldwine/cru-api-go/blob/main/LICENSE)
 
 The Go SDK for the [Cru Trading API](https://developers.cruworldwine.com), Cru World Wine's
 partner REST API: read Cru's live bid and offer books for every wine, manage your own bids and
