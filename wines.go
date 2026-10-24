@@ -63,8 +63,8 @@ func (p *WinesSearchParams) query() url.Values {
 // GET /wines. Scope: wines:read.
 //
 // It returns one page; Page.All walks every page.
-func (s *WinesService) Search(ctx context.Context, params *WinesSearchParams) (*Page[Wine], error) {
-	return getPage[Wine](ctx, s.client, endpoint{method: http.MethodGet, path: "/wines", query: params.query(), key: "wines"})
+func (s *WinesService) Search(ctx context.Context, params *WinesSearchParams, opts ...RequestOption) (*Page[Wine], error) {
+	return getPage[Wine](ctx, s.client, endpoint{method: http.MethodGet, path: "/wines", query: params.query(), key: "wines", opts: opts})
 }
 
 // Get retrieves a wine.
@@ -76,12 +76,12 @@ func (s *WinesService) Search(ctx context.Context, params *WinesSearchParams) (*
 // and offers — empty lists when it has none. The wine is returned either way.
 //
 // GET /wines/{lwin18}. Scope: wines:read.
-func (s *WinesService) Get(ctx context.Context, lwin18 string) (*WineDetail, error) {
+func (s *WinesService) Get(ctx context.Context, lwin18 string, opts ...RequestOption) (*WineDetail, error) {
 	urlPath, err := expandPath("/wines/{lwin18}", "lwin18", lwin18)
 	if err != nil {
 		return nil, err
 	}
-	return getOne[WineDetail](ctx, s.client, endpoint{method: http.MethodGet, path: urlPath, key: "wine"})
+	return getOne[WineDetail](ctx, s.client, endpoint{method: http.MethodGet, path: urlPath, key: "wine", opts: opts})
 }
 
 // Wine is returned by WinesService.Search.

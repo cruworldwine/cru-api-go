@@ -25,8 +25,8 @@ type InbondAddressesService struct {
 // not.
 //
 // GET /addresses/inbond. Scope: addresses:read.
-func (s *InbondAddressesService) List(ctx context.Context) ([]InbondAddress, error) {
-	return getList[InbondAddress](ctx, s.client, endpoint{method: http.MethodGet, path: "/addresses/inbond", key: "inbond_addresses"})
+func (s *InbondAddressesService) List(ctx context.Context, opts ...RequestOption) ([]InbondAddress, error) {
+	return getList[InbondAddress](ctx, s.client, endpoint{method: http.MethodGet, path: "/addresses/inbond", key: "inbond_addresses", opts: opts})
 }
 
 // InbondAddressesAddParams holds the parameters of InbondAddressesService.Add. Required ones are
@@ -62,12 +62,12 @@ type InbondAddressesAddParams struct {
 //
 // A partner credential's write runs at once and returns what it did in Result. A connected app's is
 // staged: Staged is true and Confirmation holds the code to confirm.
-func (s *InbondAddressesService) Add(ctx context.Context, params *InbondAddressesAddParams) (*Write[InbondAddressResult], error) {
+func (s *InbondAddressesService) Add(ctx context.Context, params *InbondAddressesAddParams, opts ...RequestOption) (*Write[InbondAddressResult], error) {
 	var body any = emptyObject
 	if params != nil {
 		body = params
 	}
-	return doWrite[InbondAddressResult](ctx, s.client, endpoint{method: http.MethodPost, path: "/addresses/inbond", body: body})
+	return doWrite[InbondAddressResult](ctx, s.client, endpoint{method: http.MethodPost, path: "/addresses/inbond", body: body, opts: opts})
 }
 
 // InbondAddressesRemoveParams holds the parameters of InbondAddressesService.Remove. Required ones
@@ -94,7 +94,7 @@ type InbondAddressesRemoveParams struct {
 //
 // A partner credential's write runs at once and returns what it did in Result. A connected app's is
 // staged: Staged is true and Confirmation holds the code to confirm.
-func (s *InbondAddressesService) Remove(ctx context.Context, id int64, params *InbondAddressesRemoveParams) (*Write[InbondAddressResult], error) {
+func (s *InbondAddressesService) Remove(ctx context.Context, id int64, params *InbondAddressesRemoveParams, opts ...RequestOption) (*Write[InbondAddressResult], error) {
 	urlPath, err := expandPath("/addresses/inbond/{id}", "id", strconv.FormatInt(id, 10))
 	if err != nil {
 		return nil, err
@@ -103,7 +103,7 @@ func (s *InbondAddressesService) Remove(ctx context.Context, id int64, params *I
 	if params != nil {
 		body = params
 	}
-	return doWrite[InbondAddressResult](ctx, s.client, endpoint{method: http.MethodDelete, path: urlPath, body: body})
+	return doWrite[InbondAddressResult](ctx, s.client, endpoint{method: http.MethodDelete, path: urlPath, body: body, opts: opts})
 }
 
 // InbondAddress is returned by InbondAddressesService.List, and found in

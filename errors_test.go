@@ -61,7 +61,7 @@ func TestErrorKinds(t *testing.T) {
 		for _, kind := range all {
 			want := false
 			for _, w := range tc.want {
-				want = want || w == kind
+				want = want || errors.Is(w, kind)
 			}
 			if got := errors.Is(e, kind); got != want {
 				t.Errorf("HTTP %d %s: errors.Is(%v) = %v", tc.status, tc.code, kind, got)

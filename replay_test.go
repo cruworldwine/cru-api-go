@@ -31,6 +31,7 @@ type replayInput struct {
 	pathValues map[string]string
 	query      map[string]any
 	body       json.RawMessage
+	opts       []RequestOption
 }
 
 func (in *replayInput) path(name string) string { return in.pathValues[name] }
@@ -212,7 +213,7 @@ func TestReplayCaptures(t *testing.T) {
 	var typed, raw, passed int
 	byOp := map[string]int{}
 	for _, file := range files {
-		b, err := os.ReadFile(file)
+		b, err := os.ReadFile(file) //nolint:gosec // the captures the developer named in CRU_CAPTURES
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -370,8 +371,19 @@ func check(op *replayOp, cp *capture, res any, err error) []string {
 		if result.IsNil() {
 			return []string{"no result"}
 		}
+		if ar, ok := result.Interface().(*ActionResult); ok {
+			if _, unknown := ar.Value.(*InstructionResult); unknown {
+				return []string{"the action " + ar.Action + " was not decoded into its result"}
+			}
+			return lossless(op.id, ar.Value, ar.Raw())
+		}
 		m := result.Interface().(Model)
 		return lossless(op.id, result.Interface(), m.Raw())
+	case "binary":
+		if b, ok := res.([]byte); !ok || len(b) == 0 {
+			return []string{"no bytes"}
+		}
+		return nil
 	}
 	return []string{"unknown kind " + op.kind}
 }

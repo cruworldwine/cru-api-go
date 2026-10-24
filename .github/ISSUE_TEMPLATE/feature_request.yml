@@ -1,0 +1,30 @@
+name: Feature request
+description: Suggest something the SDK could do better.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The SDK's methods and models are generated from the Cru Trading API's spec, so a new
+        endpoint or field arrives with the API. For what the API itself can do, see
+        [developers.cruworldwine.com](https://developers.cruworldwine.com).
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do, and what makes it hard with the SDK today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would like
+      description: How you would like the SDK to help, ideally as the Go code you would write.
+      render: go
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives
+      description: What you do today instead, such as Client.Do or WithExtraQuery.

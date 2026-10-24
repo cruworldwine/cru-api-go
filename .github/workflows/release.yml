@@ -1,0 +1,92 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+          check-latest: true
+          cache: false
+      - name: go vet
+        run: go vet ./...
+      - name: go test -race
+        run: go test -race ./...
+
+  release:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check the tag matches Version
+        run: |
+          version=$(sed -n 's/^const Version = "\(.*\)"$/\1/p' cru.go)
+          if [ "v${version}" != "${GITHUB_REF_NAME}" ]; then
+            echo "::error::The tag ${GITHUB_REF_NAME} does not match Version \"${version}\" in cru.go"
+            exit 1
+          fi
+      - name: Release notes from CHANGELOG.md
+        run: |
+          awk -v heading="## [${GITHUB_REF_NAME#v}]" '
+            index($0, heading) == 1 { found = 1; next }
+            found && /^## \[/ { exit }
+            found && /^\[.*\]: / { exit }
+            found { print }
+          ' CHANGELOG.md > "$RUNNER_TEMP/notes.md"
+          if ! grep -q '[^[:space:]]' "$RUNNER_TEMP/notes.md"; then
+            echo "::error::CHANGELOG.md has no section headed ## [${GITHUB_REF_NAME#v}]"
+            exit 1
+          fi
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          prerelease=()
+          case "${GITHUB_REF_NAME}" in *-*) prerelease=(--prerelease) ;; esac
+          gh release create "${GITHUB_REF_NAME}" --verify-tag --title "${GITHUB_REF_NAME}" \
+            --notes-file "$RUNNER_TEMP/notes.md" "${prerelease[@]}"
+
+  index:
+    name: pkg.go.dev
+    needs: release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+          cache: false
+      - name: Request the version from proxy.golang.org, so pkg.go.dev indexes it
+        working-directory: ${{ runner.temp }}
+        env:
+          GOPROXY: https://proxy.golang.org
+        run: |
+          for attempt in 1 2 3 4 5; do
+            if go list -m "github.com/cruworldwine/cru-api-go@${GITHUB_REF_NAME}"; then
+              exit 0
+            fi
+            sleep $((attempt * 20))
+          done
+          echo "::error::proxy.golang.org did not serve ${GITHUB_REF_NAME}"
+          exit 1

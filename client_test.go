@@ -3,8 +3,11 @@ package cru
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
+	"regexp"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -34,16 +37,16 @@ func TestPartnerHeaders(t *testing.T) {
 	_, _ = c.Ping(context.Background())
 	h := rt.reqs[0].Header
 	// The spec's spelling is kept on the wire, not canonicalised to Client-Key.
-	if got := h["CLIENT-KEY"]; len(got) != 1 || got[0] != "ck_test" {
+	if got := h["CLIENT-KEY"]; len(got) != 1 || got[0] != "ck_test" { //nolint:staticcheck // the wire spelling, on purpose
 		t.Errorf("CLIENT-KEY = %v", got)
 	}
-	if got := h["CLIENT-SECRET"]; len(got) != 1 || got[0] != "cs_test" {
+	if got := h["CLIENT-SECRET"]; len(got) != 1 || got[0] != "cs_test" { //nolint:staticcheck // the wire spelling, on purpose
 		t.Errorf("CLIENT-SECRET = %v", got)
 	}
 	if h.Get("Authorization") != "" {
 		t.Error("a partner sent Authorization")
 	}
-	if h.Get("User-Agent") != "cruworldwine-go/"+Version || h.Get("Accept") != "application/json" {
+	if !strings.HasPrefix(h.Get("User-Agent"), "cruworldwine-go/"+Version+" go/") || h.Get("Accept") != "application/json" {
 		t.Errorf("User-Agent %q, Accept %q", h.Get("User-Agent"), h.Get("Accept"))
 	}
 	if got := rt.reqs[0].URL.String(); got != "https://uk.cruworldwine.com/api/v1/ping" {
@@ -189,7 +192,8 @@ func TestDo(t *testing.T) {
 		t.Errorf("body %s", got.Body)
 	}
 
-	if _, err := c.Do(ctx, "GET", "/things", nil, nil); err != nil || s.requests()[1].Body != "" {
+	_, err = c.Do(ctx, "GET", "/things", nil, nil)
+	if err != nil || s.requests()[1].Body != "" {
 		t.Errorf("a GET sent a body %q, %v", s.requests()[1].Body, err)
 	}
 	_, err = c.Do(ctx, "GET", "/missing", nil, nil)
@@ -217,4 +221,133 @@ func TestConcurrentUse(t *testing.T) {
 		}()
 	}
 	wg.Wait()
+}
+
+func TestUserAgent(t *testing.T) {
+	base := regexp.MustCompile(`^cruworldwine-go/` + regexp.QuoteMeta(Version) + ` go/[0-9][^ ()]* \(` +
+		regexp.QuoteMeta(runtime.GOOS) + `; ` + regexp.QuoteMeta(runtime.GOARCH) + `\)`)
+	for _, tc := range []struct {
+		name   string
+		opt    Option
+		suffix string
+	}{
+		{"the SDK alone", nil, ""},
+		{"an app", WithAppInfo("Cellar Sync", "2.1.0", "https://example.test/cellar"), " Cellar Sync/2.1.0 (https://example.test/cellar)"},
+		{"a name alone", WithAppInfo("cellar", "", ""), " cellar"},
+		{"no name", WithAppInfo("", "1.0", "https://example.test"), ""},
+		{"no header injection", WithAppInfo("evil\r\nX-Injected: 1", "1\n", ""), " evilX-Injected: 1/1"},
+	} {
+		s := newServer(t, always(200, ok(`{"pong":true}`)))
+		c, _ := partner(t, s, tc.opt)
+		if _, err := c.Ping(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		ua := s.requests()[0].Header.Get("User-Agent")
+		if loc := base.FindStringIndex(ua); loc == nil || ua[loc[1]:] != tc.suffix {
+			t.Errorf("%s: User-Agent %q", tc.name, ua)
+		}
+	}
+	if v := goVersion(); strings.HasPrefix(v, "go") || strings.Contains(v, " ") || v == "" {
+		t.Errorf("goVersion() = %q", v)
+	}
+}
+
+func TestMarketCodes(t *testing.T) {
+	for _, market := range []string{"evil.example/#", "uk.evil.example", "u k", "-uk", "uk-", "uk/", strings.Repeat("a", 64)} {
+		if _, err := NewClient(WithAccessToken("at"), WithMarket(market)); err == nil {
+			t.Errorf("market %q: want an error", market)
+		}
+	}
+	t.Setenv("CRU_MARKET", "attacker.example:443/")
+	if _, err := NewClient(WithAccessToken("at")); err == nil {
+		t.Error("an invalid CRU_MARKET: want an error")
+	}
+	c, err := NewClient(WithAccessToken("at"), WithMarket("HK"))
+	if err != nil || c.BaseURL() != "https://hk.cruworldwine.com/api/v1" {
+		t.Errorf("market HK: %v, %v", c, err)
+	}
+	if c, err := NewClient(WithAccessToken("at"), WithBaseURL("http://localhost:1/api/v1")); err != nil || c.BaseURL() != "http://localhost:1/api/v1" {
+		t.Errorf("a base URL wins over the market: %v, %v", c, err)
+	}
+}
+
+func TestRedirects(t *testing.T) {
+	other := newServer(t, always(200, ok(`{"pong":true}`)))
+	s := newServer(t, func(w http.ResponseWriter, r *http.Request, n int) {
+		switch r.URL.Path {
+		case "/api/v1/away":
+			http.Redirect(w, r, other.URL+"/api/v1/ping", http.StatusTemporaryRedirect)
+		case "/api/v1/here":
+			http.Redirect(w, r, "/api/v1/ping", http.StatusTemporaryRedirect)
+		default:
+			reply(w, 200, ok(`{"pong":true}`))
+		}
+	})
+	c, sleeps := partner(t, s)
+	ctx := context.Background()
+	_, err := c.Do(ctx, "GET", "/away", nil, nil)
+	var ce *ConnectionError
+	if !errors.Is(err, errRedirect) || errors.As(err, &ce) || len(other.requests()) != 0 || len(sleeps.all()) != 0 {
+		t.Errorf("a redirect to another host: %v; %d requests there, %d retries", err, len(other.requests()), len(sleeps.all()))
+	}
+	if _, err := c.Do(ctx, "GET", "/here", nil, nil); err != nil {
+		t.Fatalf("a redirect on the same host: %v", err)
+	}
+	if got := s.requests()[2]; got.Path != "/ping" || got.Header.Get("Client-Secret") != "cs_test" {
+		t.Errorf("the redirect went to %s with secret %q", got.Path, got.Header.Get("Client-Secret"))
+	}
+
+	called := false
+	guarded := guardRedirects(&http.Client{CheckRedirect: func(*http.Request, []*http.Request) error {
+		called = true
+		return nil
+	}})
+	from := &http.Request{URL: mustURL(t, "https://uk.cruworldwine.com/api/v1/a")}
+	for to, want := range map[string]error{
+		"http://uk.cruworldwine.com/api/v1/b":     errRedirect,
+		"https://evil.example/api/v1/b":           errRedirect,
+		"https://UK.cruworldwine.com/api/v1/b":    nil,
+		"https://uk.cruworldwine.com:8443/api/v1": errRedirect,
+	} {
+		called = false
+		err := guarded.CheckRedirect(&http.Request{URL: mustURL(t, to)}, []*http.Request{from})
+		if !errors.Is(err, want) || (want == nil && !called) {
+			t.Errorf("%s: %v, the client's own policy called: %v", to, err, called)
+		}
+	}
+	via := make([]*http.Request, maxRedirects)
+	for i := range via {
+		via[i] = from
+	}
+	if err := guardRedirects(nil).CheckRedirect(&http.Request{URL: from.URL}, via); err == nil {
+		t.Error("an endless redirect loop was followed")
+	}
+}
+
+func mustURL(t *testing.T, s string) *url.URL {
+	t.Helper()
+	u, err := url.Parse(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return u
+}
+
+func TestPrintingHidesCredentials(t *testing.T) {
+	for _, c := range []*Client{
+		must(NewClient(WithClientKey("ck_SECRET_1", "cs_SECRET_2"))),
+		must(NewClient(WithAccessToken("at_SECRET_3"), WithOAuthRefresh("rt_SECRET_4", "app", "as_SECRET_5", nil))),
+	} {
+		out := fmt.Sprintf("%v %+v %#v %s", c, c, c, c)
+		if strings.Contains(out, "SECRET") || !strings.Contains(out, "uk.cruworldwine.com") {
+			t.Errorf("printed as %s", out)
+		}
+	}
+}
+
+func must[T any](v T, err error) T {
+	if err != nil {
+		panic(err)
+	}
+	return v
 }

@@ -23,12 +23,12 @@ type ConfirmationsService struct {
 // has one, and gets CONFIRMATION_NOT_FOUND.
 //
 // GET /confirmations/{code}.
-func (s *ConfirmationsService) Get(ctx context.Context, code string) (*Confirmation, error) {
+func (s *ConfirmationsService) Get(ctx context.Context, code string, opts ...RequestOption) (*Confirmation, error) {
 	urlPath, err := expandPath("/confirmations/{code}", "code", code)
 	if err != nil {
 		return nil, err
 	}
-	return getOne[Confirmation](ctx, s.client, endpoint{method: http.MethodGet, path: urlPath, key: "confirmation"})
+	return getOne[Confirmation](ctx, s.client, endpoint{method: http.MethodGet, path: urlPath, key: "confirmation", opts: opts})
 }
 
 // Confirm confirms an instruction.
@@ -46,12 +46,12 @@ func (s *ConfirmationsService) Get(ctx context.Context, code string) (*Confirmat
 // *OfferResult for offer.list and offer.update; *OfferRemoveResult for offer.remove; *BuyResult for
 // bid.buy; *SellResult for offer.sell; *InbondAddressResult for inbond_address.add and
 // inbond_address.remove; and *InstructionResult for an action this SDK does not know.
-func (s *ConfirmationsService) Confirm(ctx context.Context, code string) (*Write[ActionResult], error) {
+func (s *ConfirmationsService) Confirm(ctx context.Context, code string, opts ...RequestOption) (*Write[ActionResult], error) {
 	urlPath, err := expandPath("/confirmations/{code}", "code", code)
 	if err != nil {
 		return nil, err
 	}
-	return doConfirm(ctx, s.client, endpoint{method: http.MethodPost, path: urlPath, body: emptyObject})
+	return doConfirm(ctx, s.client, endpoint{method: http.MethodPost, path: urlPath, body: emptyObject, opts: opts})
 }
 
 // Cancel discards an instruction.
@@ -60,12 +60,12 @@ func (s *ConfirmationsService) Confirm(ctx context.Context, code string) (*Write
 // cannot be used again.
 //
 // DELETE /confirmations/{code}.
-func (s *ConfirmationsService) Cancel(ctx context.Context, code string) error {
+func (s *ConfirmationsService) Cancel(ctx context.Context, code string, opts ...RequestOption) error {
 	urlPath, err := expandPath("/confirmations/{code}", "code", code)
 	if err != nil {
 		return err
 	}
-	return doEmpty(ctx, s.client, endpoint{method: http.MethodDelete, path: urlPath})
+	return doEmpty(ctx, s.client, endpoint{method: http.MethodDelete, path: urlPath, opts: opts})
 }
 
 // Confirmation is returned by ConfirmationsService.Get.

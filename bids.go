@@ -58,8 +58,8 @@ func (p *BidsListParams) query() url.Values {
 // GET /bids. Scope: bids:read.
 //
 // It returns one page; Page.All walks every page.
-func (s *BidsService) List(ctx context.Context, params *BidsListParams) (*Page[OwnBid], error) {
-	return getPage[OwnBid](ctx, s.client, endpoint{method: http.MethodGet, path: "/bids", query: params.query(), key: "bids"})
+func (s *BidsService) List(ctx context.Context, params *BidsListParams, opts ...RequestOption) (*Page[OwnBid], error) {
+	return getPage[OwnBid](ctx, s.client, endpoint{method: http.MethodGet, path: "/bids", query: params.query(), key: "bids", opts: opts})
 }
 
 // BidsPlaceParams holds the parameters of BidsService.Place. Required ones are values; nil leaves
@@ -102,12 +102,12 @@ type BidsPlaceParams struct {
 //
 // A partner credential's write runs at once and returns what it did in Result. A connected app's is
 // staged: Staged is true and Confirmation holds the code to confirm.
-func (s *BidsService) Place(ctx context.Context, params *BidsPlaceParams) (*Write[BidResult], error) {
+func (s *BidsService) Place(ctx context.Context, params *BidsPlaceParams, opts ...RequestOption) (*Write[BidResult], error) {
 	var body any = emptyObject
 	if params != nil {
 		body = params
 	}
-	return doWrite[BidResult](ctx, s.client, endpoint{method: http.MethodPost, path: "/bids", body: body})
+	return doWrite[BidResult](ctx, s.client, endpoint{method: http.MethodPost, path: "/bids", body: body, opts: opts})
 }
 
 // Get retrieves one of your bids.
@@ -116,12 +116,12 @@ func (s *BidsService) Place(ctx context.Context, params *BidsPlaceParams) (*Writ
 // other venues are not found here.
 //
 // GET /bids/{code}. Scope: bids:read.
-func (s *BidsService) Get(ctx context.Context, code string) (*OwnBid, error) {
+func (s *BidsService) Get(ctx context.Context, code string, opts ...RequestOption) (*OwnBid, error) {
 	urlPath, err := expandPath("/bids/{code}", "code", code)
 	if err != nil {
 		return nil, err
 	}
-	return getOne[OwnBid](ctx, s.client, endpoint{method: http.MethodGet, path: urlPath, key: "bid"})
+	return getOne[OwnBid](ctx, s.client, endpoint{method: http.MethodGet, path: urlPath, key: "bid", opts: opts})
 }
 
 // BidsUpdateParams holds the parameters of BidsService.Update. Required ones are values; nil leaves
@@ -156,7 +156,7 @@ type BidsUpdateParams struct {
 //
 // A partner credential's write runs at once and returns what it did in Result. A connected app's is
 // staged: Staged is true and Confirmation holds the code to confirm.
-func (s *BidsService) Update(ctx context.Context, code string, params *BidsUpdateParams) (*Write[BidResult], error) {
+func (s *BidsService) Update(ctx context.Context, code string, params *BidsUpdateParams, opts ...RequestOption) (*Write[BidResult], error) {
 	urlPath, err := expandPath("/bids/{code}", "code", code)
 	if err != nil {
 		return nil, err
@@ -165,7 +165,7 @@ func (s *BidsService) Update(ctx context.Context, code string, params *BidsUpdat
 	if params != nil {
 		body = params
 	}
-	return doWrite[BidResult](ctx, s.client, endpoint{method: http.MethodPatch, path: urlPath, body: body})
+	return doWrite[BidResult](ctx, s.client, endpoint{method: http.MethodPatch, path: urlPath, body: body, opts: opts})
 }
 
 // BidsCancelParams holds the parameters of BidsService.Cancel. Required ones are values; nil leaves
@@ -190,7 +190,7 @@ type BidsCancelParams struct {
 //
 // A partner credential's write runs at once and returns what it did in Result. A connected app's is
 // staged: Staged is true and Confirmation holds the code to confirm.
-func (s *BidsService) Cancel(ctx context.Context, code string, params *BidsCancelParams) (*Write[BidResult], error) {
+func (s *BidsService) Cancel(ctx context.Context, code string, params *BidsCancelParams, opts ...RequestOption) (*Write[BidResult], error) {
 	urlPath, err := expandPath("/bids/{code}", "code", code)
 	if err != nil {
 		return nil, err
@@ -199,7 +199,7 @@ func (s *BidsService) Cancel(ctx context.Context, code string, params *BidsCance
 	if params != nil {
 		body = params
 	}
-	return doWrite[BidResult](ctx, s.client, endpoint{method: http.MethodDelete, path: urlPath, body: body})
+	return doWrite[BidResult](ctx, s.client, endpoint{method: http.MethodDelete, path: urlPath, body: body, opts: opts})
 }
 
 // BidsRenewParams holds the parameters of BidsService.Renew. Required ones are values; nil leaves
@@ -230,7 +230,7 @@ type BidsRenewParams struct {
 //
 // A partner credential's write runs at once and returns what it did in Result. A connected app's is
 // staged: Staged is true and Confirmation holds the code to confirm.
-func (s *BidsService) Renew(ctx context.Context, code string, params *BidsRenewParams) (*Write[BidResult], error) {
+func (s *BidsService) Renew(ctx context.Context, code string, params *BidsRenewParams, opts ...RequestOption) (*Write[BidResult], error) {
 	urlPath, err := expandPath("/bids/{code}/renew", "code", code)
 	if err != nil {
 		return nil, err
@@ -239,7 +239,7 @@ func (s *BidsService) Renew(ctx context.Context, code string, params *BidsRenewP
 	if params != nil {
 		body = params
 	}
-	return doWrite[BidResult](ctx, s.client, endpoint{method: http.MethodPost, path: urlPath, body: body})
+	return doWrite[BidResult](ctx, s.client, endpoint{method: http.MethodPost, path: urlPath, body: body, opts: opts})
 }
 
 // BidResult is A bid write's result: the bid as GET /bids/{code} returns it now. It is returned by

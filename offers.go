@@ -99,8 +99,8 @@ func (p *OffersListParams) query() url.Values {
 // GET /offers. Scope: offers:read.
 //
 // It returns one page; Page.All walks every page.
-func (s *OffersService) List(ctx context.Context, params *OffersListParams) (*Page[PortfolioWine], error) {
-	return getPage[PortfolioWine](ctx, s.client, endpoint{method: http.MethodGet, path: "/offers", query: params.query(), key: "offers"})
+func (s *OffersService) List(ctx context.Context, params *OffersListParams, opts ...RequestOption) (*Page[PortfolioWine], error) {
+	return getPage[PortfolioWine](ctx, s.client, endpoint{method: http.MethodGet, path: "/offers", query: params.query(), key: "offers", opts: opts})
 }
 
 // OffersCreateParams holds the parameters of OffersService.Create. Required ones are values; nil
@@ -191,12 +191,12 @@ type OffersCreateParams struct {
 //
 // A partner credential's write runs at once and returns what it did in Result. A connected app's is
 // staged: Staged is true and Confirmation holds the code to confirm.
-func (s *OffersService) Create(ctx context.Context, params *OffersCreateParams) (*Write[OfferResult], error) {
+func (s *OffersService) Create(ctx context.Context, params *OffersCreateParams, opts ...RequestOption) (*Write[OfferResult], error) {
 	var body any = emptyObject
 	if params != nil {
 		body = params
 	}
-	return doWrite[OfferResult](ctx, s.client, endpoint{method: http.MethodPost, path: "/offers", body: body})
+	return doWrite[OfferResult](ctx, s.client, endpoint{method: http.MethodPost, path: "/offers", body: body, opts: opts})
 }
 
 // Get retrieves one of your offers.
@@ -213,12 +213,12 @@ func (s *OffersService) Create(ctx context.Context, params *OffersCreateParams) 
 // credential that can read your listings sees what the listed wine cost you.
 //
 // GET /offers/{code}. Scope: offers:read.
-func (s *OffersService) Get(ctx context.Context, code string) (*PortfolioWine, error) {
+func (s *OffersService) Get(ctx context.Context, code string, opts ...RequestOption) (*PortfolioWine, error) {
 	urlPath, err := expandPath("/offers/{code}", "code", code)
 	if err != nil {
 		return nil, err
 	}
-	return getOne[PortfolioWine](ctx, s.client, endpoint{method: http.MethodGet, path: urlPath, key: "offer"})
+	return getOne[PortfolioWine](ctx, s.client, endpoint{method: http.MethodGet, path: urlPath, key: "offer", opts: opts})
 }
 
 // OffersUpdateParams holds the parameters of OffersService.Update. Required ones are values; nil
@@ -255,7 +255,7 @@ type OffersUpdateParams struct {
 //
 // A partner credential's write runs at once and returns what it did in Result. A connected app's is
 // staged: Staged is true and Confirmation holds the code to confirm.
-func (s *OffersService) Update(ctx context.Context, code string, params *OffersUpdateParams) (*Write[OfferResult], error) {
+func (s *OffersService) Update(ctx context.Context, code string, params *OffersUpdateParams, opts ...RequestOption) (*Write[OfferResult], error) {
 	urlPath, err := expandPath("/offers/{code}", "code", code)
 	if err != nil {
 		return nil, err
@@ -264,7 +264,7 @@ func (s *OffersService) Update(ctx context.Context, code string, params *OffersU
 	if params != nil {
 		body = params
 	}
-	return doWrite[OfferResult](ctx, s.client, endpoint{method: http.MethodPatch, path: urlPath, body: body})
+	return doWrite[OfferResult](ctx, s.client, endpoint{method: http.MethodPatch, path: urlPath, body: body, opts: opts})
 }
 
 // OffersRemoveParams holds the parameters of OffersService.Remove. Required ones are values; nil
@@ -300,7 +300,7 @@ type OffersRemoveParams struct {
 //
 // A partner credential's write runs at once and returns what it did in Result. A connected app's is
 // staged: Staged is true and Confirmation holds the code to confirm.
-func (s *OffersService) Remove(ctx context.Context, code string, params *OffersRemoveParams) (*Write[OfferRemoveResult], error) {
+func (s *OffersService) Remove(ctx context.Context, code string, params *OffersRemoveParams, opts ...RequestOption) (*Write[OfferRemoveResult], error) {
 	urlPath, err := expandPath("/offers/{code}", "code", code)
 	if err != nil {
 		return nil, err
@@ -309,7 +309,7 @@ func (s *OffersService) Remove(ctx context.Context, code string, params *OffersR
 	if params != nil {
 		body = params
 	}
-	return doWrite[OfferRemoveResult](ctx, s.client, endpoint{method: http.MethodDelete, path: urlPath, body: body})
+	return doWrite[OfferRemoveResult](ctx, s.client, endpoint{method: http.MethodDelete, path: urlPath, body: body, opts: opts})
 }
 
 // OfferRemoveResult is the result of taking an offer off sale. It is returned by

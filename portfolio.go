@@ -109,8 +109,8 @@ func (p *PortfolioListParams) query() url.Values {
 // GET /portfolio. Scope: portfolio:read.
 //
 // It returns one page; Page.All walks every page.
-func (s *PortfolioService) List(ctx context.Context, params *PortfolioListParams) (*Page[PortfolioWine], error) {
-	return getPage[PortfolioWine](ctx, s.client, endpoint{method: http.MethodGet, path: "/portfolio", query: params.query(), key: "wines"})
+func (s *PortfolioService) List(ctx context.Context, params *PortfolioListParams, opts ...RequestOption) (*Page[PortfolioWine], error) {
+	return getPage[PortfolioWine](ctx, s.client, endpoint{method: http.MethodGet, path: "/portfolio", query: params.query(), key: "wines", opts: opts})
 }
 
 // LinePricing is found in PortfolioLine.Pricing.

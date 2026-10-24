@@ -65,8 +65,8 @@ func (p *MarketListParams) query() url.Values {
 // GET /market. Scope: market:read.
 //
 // It returns one page; Page.All walks every page.
-func (s *MarketService) List(ctx context.Context, params *MarketListParams) (*Page[MarketWine], error) {
-	return getPage[MarketWine](ctx, s.client, endpoint{method: http.MethodGet, path: "/market", query: params.query(), key: "markets"})
+func (s *MarketService) List(ctx context.Context, params *MarketListParams, opts ...RequestOption) (*Page[MarketWine], error) {
+	return getPage[MarketWine](ctx, s.client, endpoint{method: http.MethodGet, path: "/market", query: params.query(), key: "markets", opts: opts})
 }
 
 // MarketGetWineParams holds the parameters of MarketService.GetWine. Required ones are values; nil
@@ -104,12 +104,12 @@ func (p *MarketGetWineParams) query() url.Values {
 // side: bids and offers are then empty lists. Only a wine Cru does not know is NOT_FOUND / 404.
 //
 // GET /market/wines/{lwin18}. Scope: market:read.
-func (s *MarketService) GetWine(ctx context.Context, lwin18 string, params *MarketGetWineParams) (*MarketWine, error) {
+func (s *MarketService) GetWine(ctx context.Context, lwin18 string, params *MarketGetWineParams, opts ...RequestOption) (*MarketWine, error) {
 	urlPath, err := expandPath("/market/wines/{lwin18}", "lwin18", lwin18)
 	if err != nil {
 		return nil, err
 	}
-	return getOne[MarketWine](ctx, s.client, endpoint{method: http.MethodGet, path: urlPath, query: params.query(), key: "market"})
+	return getOne[MarketWine](ctx, s.client, endpoint{method: http.MethodGet, path: urlPath, query: params.query(), key: "market", opts: opts})
 }
 
 // MarketListBidsParams holds the parameters of MarketService.ListBids. Required ones are values;
@@ -186,8 +186,8 @@ func (p *MarketListBidsParams) query() url.Values {
 // GET /market/bids. Scope: market:read.
 //
 // It returns one page; Page.All walks every page.
-func (s *MarketService) ListBids(ctx context.Context, params *MarketListBidsParams) (*Page[MarketWine], error) {
-	return getPage[MarketWine](ctx, s.client, endpoint{method: http.MethodGet, path: "/market/bids", query: params.query(), key: "markets"})
+func (s *MarketService) ListBids(ctx context.Context, params *MarketListBidsParams, opts ...RequestOption) (*Page[MarketWine], error) {
+	return getPage[MarketWine](ctx, s.client, endpoint{method: http.MethodGet, path: "/market/bids", query: params.query(), key: "markets", opts: opts})
 }
 
 // GetBid retrieves a market bid.
@@ -199,12 +199,12 @@ func (s *MarketService) ListBids(ctx context.Context, params *MarketListBidsPara
 // Your own bids are returned, with is_own_bid set.
 //
 // GET /market/bids/{code}. Scope: market:read.
-func (s *MarketService) GetBid(ctx context.Context, code string) (*MarketBidDetail, error) {
+func (s *MarketService) GetBid(ctx context.Context, code string, opts ...RequestOption) (*MarketBidDetail, error) {
 	urlPath, err := expandPath("/market/bids/{code}", "code", code)
 	if err != nil {
 		return nil, err
 	}
-	return getOne[MarketBidDetail](ctx, s.client, endpoint{method: http.MethodGet, path: urlPath, key: "bid"})
+	return getOne[MarketBidDetail](ctx, s.client, endpoint{method: http.MethodGet, path: urlPath, key: "bid", opts: opts})
 }
 
 // MarketGetWineBidsParams holds the parameters of MarketService.GetWineBids. Required ones are
@@ -258,12 +258,12 @@ func (p *MarketGetWineBidsParams) query() url.Values {
 // know is NOT_FOUND / 404.
 //
 // GET /market/wines/{lwin18}/bids. Scope: market:read.
-func (s *MarketService) GetWineBids(ctx context.Context, lwin18 string, params *MarketGetWineBidsParams) (*MarketWine, error) {
+func (s *MarketService) GetWineBids(ctx context.Context, lwin18 string, params *MarketGetWineBidsParams, opts ...RequestOption) (*MarketWine, error) {
 	urlPath, err := expandPath("/market/wines/{lwin18}/bids", "lwin18", lwin18)
 	if err != nil {
 		return nil, err
 	}
-	return getOne[MarketWine](ctx, s.client, endpoint{method: http.MethodGet, path: urlPath, query: params.query(), key: "market"})
+	return getOne[MarketWine](ctx, s.client, endpoint{method: http.MethodGet, path: urlPath, query: params.query(), key: "market", opts: opts})
 }
 
 // MarketListOffersParams holds the parameters of MarketService.ListOffers. Required ones are
@@ -326,8 +326,8 @@ func (p *MarketListOffersParams) query() url.Values {
 // GET /market/offers. Scope: market:read.
 //
 // It returns one page; Page.All walks every page.
-func (s *MarketService) ListOffers(ctx context.Context, params *MarketListOffersParams) (*Page[MarketWine], error) {
-	return getPage[MarketWine](ctx, s.client, endpoint{method: http.MethodGet, path: "/market/offers", query: params.query(), key: "markets"})
+func (s *MarketService) ListOffers(ctx context.Context, params *MarketListOffersParams, opts ...RequestOption) (*Page[MarketWine], error) {
+	return getPage[MarketWine](ctx, s.client, endpoint{method: http.MethodGet, path: "/market/offers", query: params.query(), key: "markets", opts: opts})
 }
 
 // GetOffer retrieves a market offer.
@@ -336,12 +336,12 @@ func (s *MarketService) ListOffers(ctx context.Context, params *MarketListOffers
 // duty status, condition and warehouse.
 //
 // GET /market/offers/{code}. Scope: market:read.
-func (s *MarketService) GetOffer(ctx context.Context, code string) (*MarketOfferDetail, error) {
+func (s *MarketService) GetOffer(ctx context.Context, code string, opts ...RequestOption) (*MarketOfferDetail, error) {
 	urlPath, err := expandPath("/market/offers/{code}", "code", code)
 	if err != nil {
 		return nil, err
 	}
-	return getOne[MarketOfferDetail](ctx, s.client, endpoint{method: http.MethodGet, path: urlPath, key: "offer"})
+	return getOne[MarketOfferDetail](ctx, s.client, endpoint{method: http.MethodGet, path: urlPath, key: "offer", opts: opts})
 }
 
 // MarketGetWineOffersParams holds the parameters of MarketService.GetWineOffers. Required ones are
@@ -388,12 +388,12 @@ func (p *MarketGetWineOffersParams) query() url.Values {
 // the offer book, so they can trail the live market. Re-read an offer before acting on it.
 //
 // GET /market/wines/{lwin18}/offers. Scope: market:read.
-func (s *MarketService) GetWineOffers(ctx context.Context, lwin18 string, params *MarketGetWineOffersParams) (*MarketWine, error) {
+func (s *MarketService) GetWineOffers(ctx context.Context, lwin18 string, params *MarketGetWineOffersParams, opts ...RequestOption) (*MarketWine, error) {
 	urlPath, err := expandPath("/market/wines/{lwin18}/offers", "lwin18", lwin18)
 	if err != nil {
 		return nil, err
 	}
-	return getOne[MarketWine](ctx, s.client, endpoint{method: http.MethodGet, path: urlPath, query: params.query(), key: "market"})
+	return getOne[MarketWine](ctx, s.client, endpoint{method: http.MethodGet, path: urlPath, query: params.query(), key: "market", opts: opts})
 }
 
 // MarketBuyOfferParams holds the parameters of MarketService.BuyOffer. Required ones are values;
@@ -432,7 +432,7 @@ type MarketBuyOfferParams struct {
 //
 // A partner credential's write runs at once and returns what it did in Result. A connected app's is
 // staged: Staged is true and Confirmation holds the code to confirm.
-func (s *MarketService) BuyOffer(ctx context.Context, code string, params *MarketBuyOfferParams) (*Write[BuyResult], error) {
+func (s *MarketService) BuyOffer(ctx context.Context, code string, params *MarketBuyOfferParams, opts ...RequestOption) (*Write[BuyResult], error) {
 	urlPath, err := expandPath("/market/offers/{code}/buy", "code", code)
 	if err != nil {
 		return nil, err
@@ -441,7 +441,7 @@ func (s *MarketService) BuyOffer(ctx context.Context, code string, params *Marke
 	if params != nil {
 		body = params
 	}
-	return doWrite[BuyResult](ctx, s.client, endpoint{method: http.MethodPost, path: urlPath, body: body})
+	return doWrite[BuyResult](ctx, s.client, endpoint{method: http.MethodPost, path: urlPath, body: body, opts: opts})
 }
 
 // MarketSellToBidParams holds the parameters of MarketService.SellToBid. Required ones are values;
@@ -517,7 +517,7 @@ type MarketSellToBidParams struct {
 //
 // A partner credential's write runs at once and returns what it did in Result. A connected app's is
 // staged: Staged is true and Confirmation holds the code to confirm.
-func (s *MarketService) SellToBid(ctx context.Context, code string, params *MarketSellToBidParams) (*Write[SellResult], error) {
+func (s *MarketService) SellToBid(ctx context.Context, code string, params *MarketSellToBidParams, opts ...RequestOption) (*Write[SellResult], error) {
 	urlPath, err := expandPath("/market/bids/{code}/sell", "code", code)
 	if err != nil {
 		return nil, err
@@ -526,7 +526,7 @@ func (s *MarketService) SellToBid(ctx context.Context, code string, params *Mark
 	if params != nil {
 		body = params
 	}
-	return doWrite[SellResult](ctx, s.client, endpoint{method: http.MethodPost, path: urlPath, body: body})
+	return doWrite[SellResult](ctx, s.client, endpoint{method: http.MethodPost, path: urlPath, body: body, opts: opts})
 }
 
 // BidRequirements is found in MarketBid.Requirements and MarketBidDetail.Requirements.

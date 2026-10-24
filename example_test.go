@@ -5,9 +5,51 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"log/slog"
+	"os"
+	"time"
 
 	cru "github.com/cruworldwine/cru-api-go"
 )
+
+func ExampleWithLogger() {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	client, err := cru.NewClient(
+		cru.WithLogger(logger), // attempts at Debug, retries and refreshes at Info; never secrets
+		cru.WithAppInfo("cellar-sync", "2.1.0", "https://example.com/cellar-sync"),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+	_, _ = client.Ping(context.Background())
+}
+
+func ExampleWithResponseInto() {
+	client, _ := cru.NewClient()
+	var meta cru.ResponseMeta
+	bid, err := client.Bids.Get(context.Background(), "BID-CODE",
+		cru.WithResponseInto(&meta),
+		cru.WithRequestTimeout(5*time.Second),
+		cru.WithRequestHeader("traceparent", "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+	// Quote the request id to Cru support.
+	fmt.Println(bid.Status, meta.StatusCode, meta.RequestID, meta.Attempts)
+}
+
+func ExampleWithExtraQuery() {
+	client, _ := cru.NewClient()
+	// Send a parameter, or a body field, this version of the SDK does not know yet.
+	page, err := client.Bids.List(context.Background(), nil, cru.WithExtraQuery("new_filter", "value"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	_, err = client.Bids.Update(context.Background(), "BID-CODE", &cru.BidsUpdateParams{Price: cru.Float(1300)},
+		cru.WithExtraBodyField("new_field", true))
+	fmt.Println(len(page.Items), err)
+}
 
 func ExampleNewClient() {
 	// A partner credential; its writes run at once.

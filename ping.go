@@ -17,8 +17,8 @@ import (
 // any trading data.
 //
 // GET /ping. Scope: meta:read.
-func (c *Client) Ping(ctx context.Context) (*Ping, error) {
-	return getOne[Ping](ctx, c, endpoint{method: http.MethodGet, path: "/ping"})
+func (c *Client) Ping(ctx context.Context, opts ...RequestOption) (*Ping, error) {
+	return getOne[Ping](ctx, c, endpoint{method: http.MethodGet, path: "/ping", opts: opts})
 }
 
 // APIClient is found in Ping.Client.

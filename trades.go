@@ -62,8 +62,8 @@ func (p *TradesListPurchasesParams) query() url.Values {
 // GET /trades/purchases. Scope: trades:read.
 //
 // It returns one page; Page.All walks every page.
-func (s *TradesService) ListPurchases(ctx context.Context, params *TradesListPurchasesParams) (*Page[Purchase], error) {
-	return getPage[Purchase](ctx, s.client, endpoint{method: http.MethodGet, path: "/trades/purchases", query: params.query(), key: "purchases"})
+func (s *TradesService) ListPurchases(ctx context.Context, params *TradesListPurchasesParams, opts ...RequestOption) (*Page[Purchase], error) {
+	return getPage[Purchase](ctx, s.client, endpoint{method: http.MethodGet, path: "/trades/purchases", query: params.query(), key: "purchases", opts: opts})
 }
 
 // TradesListSalesParams holds the parameters of TradesService.ListSales. Required ones are values;
@@ -125,8 +125,8 @@ func (p *TradesListSalesParams) query() url.Values {
 // GET /trades/sales. Scope: trades:read.
 //
 // It returns one page; Page.All walks every page.
-func (s *TradesService) ListSales(ctx context.Context, params *TradesListSalesParams) (*Page[Sale], error) {
-	return getPage[Sale](ctx, s.client, endpoint{method: http.MethodGet, path: "/trades/sales", query: params.query(), key: "sales"})
+func (s *TradesService) ListSales(ctx context.Context, params *TradesListSalesParams, opts ...RequestOption) (*Page[Sale], error) {
+	return getPage[Sale](ctx, s.client, endpoint{method: http.MethodGet, path: "/trades/sales", query: params.query(), key: "sales", opts: opts})
 }
 
 // Purchase is returned by TradesService.ListPurchases.

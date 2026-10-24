@@ -1,3 +1,16 @@
 *.test
 *.out
+*.prof
 coverage.*
+
+# Build output and tools installed into the checkout.
+/bin/
+/dist/
+
+# Editors and operating systems.
+.idea/
+.vscode/
+.DS_Store
+
+# Fuzzing caches its corpus under $GOCACHE, outside the repository. A failing input written to
+# testdata/fuzz/ is a regression test: commit it with its fix.
