@@ -1,0 +1,59 @@
+name: Bug report
+description: Something in the SDK does not work as documented.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. **Never paste credentials, tokens or customer data**: a client key,
+        secret, access or refresh token, or an account's details. A security vulnerability goes to
+        the repository's Security tab ("Report a vulnerability"), not here.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What did the SDK do, and what did you expect it to do?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How to reproduce it
+      description: The smallest program that shows the problem, with invented values.
+      render: go
+    validations:
+      required: true
+  - type: input
+    id: sdk-version
+    attributes:
+      label: SDK version
+      description: The module version from go.mod, or cru.Version.
+      placeholder: v0.1.1
+    validations:
+      required: true
+  - type: input
+    id: go-version
+    attributes:
+      label: Go version and platform
+      description: The output of `go version`.
+      placeholder: go version go1.24.2 linux/amd64
+    validations:
+      required: true
+  - type: input
+    id: request-id
+    attributes:
+      label: Request id
+      description: If the API answered, its request id (APIError.RequestID, or ResponseMeta.RequestID), so Cru can find the request.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error and logs
+      description: The error, and the SDK's log lines if you used WithLogger. They hold no credentials, but check before pasting.
+      render: text
+  - type: checkboxes
+    id: no-secrets
+    attributes:
+      label: Before you submit
+      options:
+        - label: This report holds no credentials, tokens or customer data.
+          required: true
