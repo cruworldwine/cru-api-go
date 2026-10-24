@@ -57,7 +57,7 @@
 package cru
 
 // Version is this SDK's version, sent in the User-Agent header.
-const Version = "0.1.0"
+const Version = "0.1.1"
 
 const userAgent = "cruworldwine-go/" + Version
 
@@ -72,3 +72,13 @@ func Float(v float64) *float64 { return &v }
 
 // Bool returns a pointer to v, for an optional parameter.
 func Bool(v bool) *bool { return &v }
+
+// Value returns what p points to, or the zero value when p is nil, so a nullable field reads
+// without a nil check: cru.Value(wine.WineName).
+func Value[T any](p *T) T {
+	if p == nil {
+		var zero T
+		return zero
+	}
+	return *p
+}

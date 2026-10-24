@@ -115,6 +115,16 @@ func TestNullAndMissing(t *testing.T) {
 	}
 }
 
+func TestValueReadsNullableFields(t *testing.T) {
+	var w PortfolioWine
+	if err := json.Unmarshal([]byte(`{"lwin18":"1","wine_name":"Example 2016","vintage":null}`), &w); err != nil {
+		t.Fatal(err)
+	}
+	if Value(w.WineName) != "Example 2016" || Value(w.Vintage) != 0 || Value(w.MarketPrice) != 0 {
+		t.Errorf("Value: %q %d %v", Value(w.WineName), Value(w.Vintage), Value(w.MarketPrice))
+	}
+}
+
 func TestMarshalUsesAPINames(t *testing.T) {
 	bid := decode[OwnBid](t, bidJSON(testBidCode))
 	b, err := json.Marshal(bid)

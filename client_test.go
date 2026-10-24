@@ -43,7 +43,7 @@ func TestPartnerHeaders(t *testing.T) {
 	if h.Get("Authorization") != "" {
 		t.Error("a partner sent Authorization")
 	}
-	if h.Get("User-Agent") != "cruworldwine-go/0.1.0" || h.Get("Accept") != "application/json" {
+	if h.Get("User-Agent") != "cruworldwine-go/"+Version || h.Get("Accept") != "application/json" {
 		t.Errorf("User-Agent %q, Accept %q", h.Get("User-Agent"), h.Get("Accept"))
 	}
 	if got := rt.reqs[0].URL.String(); got != "https://uk.cruworldwine.com/api/v1/ping" {
