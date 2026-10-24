@@ -69,12 +69,41 @@ if err != nil {
 fmt.Println(p.Client.Market, p.Client.Currency, p.Client.Scopes)
 ```
 
+## Typed models
+
+Every endpoint is a typed method, and every answer decodes into a typed model: a struct per API
+object, with a field per API field and the API's descriptions as its doc comments. Nullable
+fields are pointers; `cru.Value(p)` reads one, or gives its zero value when it is nil.
+
+```go
+page, err := client.Portfolio.List(ctx, &cru.PortfolioListParams{IsListed: cru.Bool(true)})
+if err != nil {
+	return err
+}
+for _, wine := range page.Items { // []cru.PortfolioWine
+	for _, line := range wine.Portfolio { // []cru.PortfolioLine
+		fmt.Println(cru.Value(wine.WineName), line.Quantity, line.StockType,
+			cru.Value(line.Pricing.ListingPrice), cru.Value(line.Pricing.NetProceeds), wine.Currency)
+	}
+}
+```
+
+Each resource is one file: its service, methods, parameter structs and the models it returns.
+For example, `portfolio.go` has `PortfolioService`, `PortfolioListParams`, `PortfolioWine`,
+`PortfolioLine`, `LinePricing` and `LineWarehouse`. `market.go`, `bids.go`, `offers.go`,
+`trades.go`, `wines.go`, `warehouses.go`, `inbond_warehouses.go`, `inbond_addresses.go`,
+`confirmations.go`, `photos.go` and `ping.go` hold the rest. `values.go` has the known values of
+fields such as `StockType` and `Currency`, as constants.
+
+[`examples/`](examples) has programs to run: `portfolio` prints your portfolio, `market` the
+bids and offers on a wine, and `place-bid` places a bid and, as a connected app, confirms it.
+
 ## Calls
 
 Every method takes a `context.Context` first and is grouped by resource: `client.Bids`,
 `client.Offers`, `client.Market`, `client.Portfolio`, `client.Trades`, `client.Wines`,
 `client.Warehouses`, `client.InbondWarehouses`, `client.InbondAddresses`, `client.Photos`,
-`client.Confirmations`, and `client.Ping`.
+`client.Confirmations`, and `client.Ping`. [Every method](#every-method) lists them all.
 
 Parameters go in one struct per call. Required ones are values; optional ones are pointers, set
 with `cru.String`, `cru.Int`, `cru.Float` and `cru.Bool`. A nil field, or nil params, sends nothing.
@@ -170,6 +199,54 @@ For an endpoint this SDK does not know yet, `client.Do(ctx, method, path, query,
 the envelope (`StatusCode`, `Header`, `Status`, `Message`, `Meta`, `Data`, `Body`), with the same
 errors, retries and references as every other call.
 
+## Every method
+
+Generated from the spec; each method's doc comment has the full description.
+
+<!-- sdkgen:methods -->
+| Method | Endpoint | Returns |
+|---|---|---|
+| `client.Ping(ctx)` | `GET /ping` | `*Ping` |
+| `client.Portfolio.List(ctx, *PortfolioListParams)` | `GET /portfolio` | `*Page[PortfolioWine]` |
+| `client.Offers.List(ctx, *OffersListParams)` | `GET /offers` | `*Page[PortfolioWine]` |
+| `client.Offers.Create(ctx, *OffersCreateParams)` | `POST /offers` | `*Write[OfferResult]` |
+| `client.Offers.Get(ctx, code)` | `GET /offers/{code}` | `*PortfolioWine` |
+| `client.Offers.Update(ctx, code, *OffersUpdateParams)` | `PATCH /offers/{code}` | `*Write[OfferResult]` |
+| `client.Offers.Remove(ctx, code, *OffersRemoveParams)` | `DELETE /offers/{code}` | `*Write[OfferRemoveResult]` |
+| `client.Bids.List(ctx, *BidsListParams)` | `GET /bids` | `*Page[OwnBid]` |
+| `client.Bids.Place(ctx, *BidsPlaceParams)` | `POST /bids` | `*Write[BidResult]` |
+| `client.Bids.Get(ctx, code)` | `GET /bids/{code}` | `*OwnBid` |
+| `client.Bids.Update(ctx, code, *BidsUpdateParams)` | `PATCH /bids/{code}` | `*Write[BidResult]` |
+| `client.Bids.Cancel(ctx, code, *BidsCancelParams)` | `DELETE /bids/{code}` | `*Write[BidResult]` |
+| `client.Bids.Renew(ctx, code, *BidsRenewParams)` | `POST /bids/{code}/renew` | `*Write[BidResult]` |
+| `client.Market.List(ctx, *MarketListParams)` | `GET /market` | `*Page[MarketWine]` |
+| `client.Market.GetWine(ctx, lwin18, *MarketGetWineParams)` | `GET /market/wines/{lwin18}` | `*MarketWine` |
+| `client.Market.ListBids(ctx, *MarketListBidsParams)` | `GET /market/bids` | `*Page[MarketWine]` |
+| `client.Market.GetBid(ctx, code)` | `GET /market/bids/{code}` | `*MarketBidDetail` |
+| `client.Market.GetWineBids(ctx, lwin18, *MarketGetWineBidsParams)` | `GET /market/wines/{lwin18}/bids` | `*MarketWine` |
+| `client.Market.ListOffers(ctx, *MarketListOffersParams)` | `GET /market/offers` | `*Page[MarketWine]` |
+| `client.Market.GetOffer(ctx, code)` | `GET /market/offers/{code}` | `*MarketOfferDetail` |
+| `client.Market.GetWineOffers(ctx, lwin18, *MarketGetWineOffersParams)` | `GET /market/wines/{lwin18}/offers` | `*MarketWine` |
+| `client.Market.BuyOffer(ctx, code, *MarketBuyOfferParams)` | `POST /market/offers/{code}/buy` | `*Write[BuyResult]` |
+| `client.Market.SellToBid(ctx, code, *MarketSellToBidParams)` | `POST /market/bids/{code}/sell` | `*Write[SellResult]` |
+| `client.Wines.Search(ctx, *WinesSearchParams)` | `GET /wines` | `*Page[Wine]` |
+| `client.Wines.Get(ctx, lwin18)` | `GET /wines/{lwin18}` | `*WineDetail` |
+| `client.Trades.ListPurchases(ctx, *TradesListPurchasesParams)` | `GET /trades/purchases` | `*Page[Purchase]` |
+| `client.Trades.ListSales(ctx, *TradesListSalesParams)` | `GET /trades/sales` | `*Page[Sale]` |
+| `client.Warehouses.List(ctx)` | `GET /warehouses` | `[]Warehouse` |
+| `client.Warehouses.Get(ctx, code)` | `GET /warehouses/{code}` | `*Warehouse` |
+| `client.InbondWarehouses.List(ctx)` | `GET /warehouses/inbond` | `[]InbondWarehouse` |
+| `client.InbondWarehouses.Suggest(ctx, *InbondWarehousesSuggestParams)` | `POST /warehouses/inbond` | `*Write[InbondWarehouseResult]` |
+| `client.InbondWarehouses.Get(ctx, id)` | `GET /warehouses/inbond/{id}` | `*InbondWarehouse` |
+| `client.InbondAddresses.List(ctx)` | `GET /addresses/inbond` | `[]InbondAddress` |
+| `client.InbondAddresses.Add(ctx, *InbondAddressesAddParams)` | `POST /addresses/inbond` | `*Write[InbondAddressResult]` |
+| `client.InbondAddresses.Remove(ctx, id, *InbondAddressesRemoveParams)` | `DELETE /addresses/inbond/{id}` | `*Write[InbondAddressResult]` |
+| `client.Confirmations.Get(ctx, code)` | `GET /confirmations/{code}` | `*Confirmation` |
+| `client.Confirmations.Confirm(ctx, code)` | `POST /confirmations/{code}` | `*Write[ActionResult]` |
+| `client.Confirmations.Cancel(ctx, code)` | `DELETE /confirmations/{code}` | `error only` |
+| `client.Photos.Get(ctx, id)` | `GET /photos/{id}` | `[]byte` |
+<!-- /sdkgen:methods -->
+
 ## Running the tests
 
 The tests need no credentials and make no network calls: every call goes to a local test server.
@@ -192,8 +269,9 @@ go vet ./... && go test -race ./...
 
 ## Development
 
-`models_gen.go`, `resources_gen.go` and `replay_gen_test.go` are generated from the OpenAPI spec
-(`spec/openapi.yaml` is the copy they were generated from); do not edit them. Cru regenerates them
+The resource files, `services.go`, `values.go`, `envelope.go`, `replay_gen_test.go` and the
+method table above are generated from the OpenAPI spec (`spec/openapi.yaml` is the copy they were
+generated from); each generated file starts with `DO NOT EDIT`. The rest is written by hand. Cru regenerates them
 from the API's own repository after each API change:
 
 ```
