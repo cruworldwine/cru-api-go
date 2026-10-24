@@ -1,5 +1,6 @@
 name: CI
 
+# Every job runs a Makefile target, so a check passes here exactly when it passes locally.
 on:
   pull_request:
   push:
@@ -13,8 +14,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  fmt-vet:
-    name: gofmt and go vet
+  checks:
+    name: gofmt, go vet, go mod tidy, examples
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -25,21 +26,13 @@ jobs:
         with:
           go-version: stable
           check-latest: true
-          cache: false
-      - name: gofmt
-        run: |
-          unformatted=$(gofmt -l .)
-          if [ -n "$unformatted" ]; then
-            echo "::error::Run gofmt -w on: $unformatted"
-            exit 1
-          fi
-      - name: go vet
-        run: go vet ./...
+          cache-dependency-path: go.mod
+      - run: make fmt-check vet tidy-check examples
 
   lint:
     name: golangci-lint
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -48,10 +41,8 @@ jobs:
         with:
           go-version: stable
           check-latest: true
-          cache: false
-      - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
-        with:
-          version: v2.15.0
+          cache-dependency-path: go.mod
+      - run: make lint
 
   vuln:
     name: govulncheck
@@ -65,9 +56,8 @@ jobs:
         with:
           go-version: stable
           check-latest: true
-          cache: false
-      - name: govulncheck
-        run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
+          cache-dependency-path: go.mod
+      - run: make vuln
 
   test:
     name: test (Go ${{ matrix.go }}, ${{ matrix.os }})
@@ -90,16 +80,13 @@ jobs:
         with:
           go-version: ${{ matrix.go }}
           check-latest: true
-          cache: false
-      - name: go test -race
-        run: go test -race ./...
+          cache-dependency-path: go.mod
+      - run: make race
 
   coverage:
     name: coverage
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    env:
-      MIN_COVERAGE: '80'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -108,17 +95,20 @@ jobs:
         with:
           go-version: stable
           check-latest: true
-          cache: false
-      - name: Measure
+          cache-dependency-path: go.mod
+      - name: make cover
         run: |
-          go test -coverprofile=coverage.out .
-          total=$(go tool cover -func=coverage.out | awk '/^total:/ { sub("%", "", $3); print $3 }')
-          echo "Unit test coverage of package cru: **${total}%** (floor ${MIN_COVERAGE}%)" >> "$GITHUB_STEP_SUMMARY"
-          echo "Coverage: ${total}%"
-          if awk -v t="$total" -v m="$MIN_COVERAGE" 'BEGIN { exit !(t < m) }'; then
-            echo "::error::Coverage ${total}% is under the ${MIN_COVERAGE}% floor"
-            exit 1
-          fi
+          status=0
+          make cover > coverage.txt 2>&1 || status=$?
+          cat coverage.txt
+          {
+            echo "## Unit test coverage"
+            echo
+            echo '```'
+            cat coverage.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
 
   fuzz:
     name: fuzz
@@ -132,9 +122,5 @@ jobs:
         with:
           go-version: stable
           check-latest: true
-          cache: false
-      - name: Fuzz each target briefly
-        run: |
-          for target in $(go test -list '^Fuzz' . | grep '^Fuzz'); do
-            go test -run '^$' -fuzz "^${target}\$" -fuzztime 15s .
-          done
+          cache-dependency-path: go.mod
+      - run: make fuzz FUZZTIME=15s

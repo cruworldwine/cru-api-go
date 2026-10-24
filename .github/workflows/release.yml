@@ -23,11 +23,8 @@ jobs:
         with:
           go-version: stable
           check-latest: true
-          cache: false
-      - name: go vet
-        run: go vet ./...
-      - name: go test -race
-        run: go test -race ./...
+          cache-dependency-path: go.mod
+      - run: make vet race
 
   release:
     needs: test
@@ -41,9 +38,9 @@ jobs:
           persist-credentials: false
       - name: Check the tag matches Version
         run: |
-          version=$(sed -n 's/^const Version = "\(.*\)"$/\1/p' cru.go)
+          version=$(sed -n 's/^const Version = "\(.*\)"$/\1/p' internal/version/version.go)
           if [ "v${version}" != "${GITHUB_REF_NAME}" ]; then
-            echo "::error::The tag ${GITHUB_REF_NAME} does not match Version \"${version}\" in cru.go"
+            echo "::error::The tag ${GITHUB_REF_NAME} does not match Version \"${version}\" in internal/version/version.go"
             exit 1
           fi
       - name: Release notes from CHANGELOG.md

@@ -14,7 +14,7 @@ import (
 	"strconv"
 	"strings"
 
-	cru "github.com/cruworldwine/cru-api-go"
+	"github.com/cruworldwine/cru-api-go/cru"
 )
 
 func main() {

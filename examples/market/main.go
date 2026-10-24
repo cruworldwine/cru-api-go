@@ -9,7 +9,7 @@ import (
 	"log"
 	"os"
 
-	cru "github.com/cruworldwine/cru-api-go"
+	"github.com/cruworldwine/cru-api-go/cru"
 )
 
 func main() {

@@ -1,0 +1,97 @@
+# Architecture
+
+## Package layout
+
+```
+cru-api-go/
+├── cru/                 package cru, the only package users import
+├── internal/
+│   ├── transport/       the HTTP pipeline
+│   ├── apijson/         tolerant JSON decoding and the envelope
+│   ├── apiquery/        query string encoding
+│   └── version/         Version and the User-Agent
+├── test/integration/    black-box tests through the public API
+├── examples/            programs to run: portfolio, market, place-bid
+├── api/openapi.yaml     the copy of the spec the code was generated from
+├── docs/                these guides
+└── hack/                scripts the Makefile runs
+```
+
+The dependencies go one way: `cru` imports the internal packages, `internal/transport` imports
+`internal/apijson`, and no internal package imports `cru`. Everything is the standard library.
+
+| Package | Holds | Knows of the API's models? |
+|---|---|---|
+| `cru` | `Client` and its options, the services and their methods, parameter structs, models, known-value constants, `APIError` and its kinds, `Page`, `Write`, `ResponseMeta`, `Value` and `Field`; and the glue from a generated method to the transport | yes |
+| `internal/transport` | building a request (URL, query, JSON body, headers, credentials), the per-call options, retries and back-off, the partner write's reference, the OAuth refresh, the redirect guard, logging | no: it answers with status, headers and body |
+| `internal/apijson` | `Split` and the `Decode` family the generated models decode with, `Lookup` for `Field`, and reading the envelope (data, lists, request id, first error) | no |
+| `internal/apiquery` | writing parameters into the query string | no |
+| `internal/version` | `Version` and the User-Agent | no |
+
+The internal packages are free to change between versions; `cru` is the API, and changes to it
+follow [the versioning policy](compatibility.md#versioning).
+
+## The life of a request
+
+Take `client.Bids.Get(ctx, code, cru.WithRequestTimeout(5*time.Second))`:
+
+1. **The generated method** (`cru/bids.go`) escapes `code` into the path, `/bids/{code}`, and
+   describes the call as an `endpoint`: method, path, query (from the params struct, through
+   `internal/apiquery`), body, the key the result is under in `data` (`bid`), and the request
+   options. It hands it to `getOne[OwnBid]`, the glue in `cru/call.go`.
+2. **The request options** are applied to a `transport.Options`: each `cru.RequestOption` is a
+   function that sets a header, a timeout, retries, an extra query parameter or body field, or
+   an observer for `WithResponseInto`. One that cannot apply records an error, and nothing is
+   sent.
+3. **The transport** (`internal/transport`) encodes the request once: the URL and query, the
+   JSON body with any extra fields and, for a partner's write, a `reference` when it has none,
+   so every attempt sends the same bytes. It then sends attempts:
+   - each with the User-Agent, the credentials (`CLIENT-KEY` and `CLIENT-SECRET`, or the bearer
+     token) and the call's headers, under the attempt timeout;
+   - through a copy of the `*http.Client` that refuses a redirect to another host;
+   - logging each attempt at Debug, never with a credential, query string or body;
+   - on a 401, refreshing the access token once (concurrent calls share one refresh) and trying
+     again;
+   - on a network error, a timeout, 429, 5xx or `REQUEST_IN_PROGRESS`, when the call may be
+     retried, waiting (back-off, or as long as the API says) and trying again.
+
+   It answers with the raw response, or a `*transport.StatusError` (an answer of 400 or more)
+   or a `*transport.ConnectionError`.
+4. **The glue** (`cru/call.go`) turns those into `*cru.APIError` (its fields read from the
+   error envelope) or `*cru.ConnectionError`, then reads the envelope with `internal/apijson`
+   and decodes `data.bid` into an `OwnBid`.
+5. **The model** (`cru/bids.go`) decodes field by field, with `apijson.Split` and the `Decode`
+   family: a field that does not fit is left unset, and the JSON is kept for `Raw` and `Field`.
+
+## How code generation works
+
+The API's surface is generated from its OpenAPI spec, by the generator in Cru's API repository
+(`docs/api/tools/sdkgen`, with `gen_go.py` for Go). `make generate`, with `CRU_API_REPO` naming
+that checkout, writes:
+
+- into `cru/`: a file per resource (its service, methods, parameter structs and the models it
+  returns, such as `bids.go`), `services.go` (the `Resources` wiring and the confirmed actions'
+  result types), `values.go` (the known-value constants), `envelope.go` (`Meta`, `Pagination`,
+  `ErrorEntry`) and `sample_gen_test.go` (an invented call and answer for every operation, which
+  `TestEveryOperation` checks);
+- `test/integration/replay_gen_test.go`, which calls each operation from a captured request;
+- `api/openapi.yaml`, the copy of the spec it generated from, and the method table in the README.
+
+Each generated file starts with `// Code generated by sdkgen ... DO NOT EDIT.` Generation is
+deterministic: `make verify-generated` regenerates and fails if anything changed, which catches a
+generated file edited by hand.
+
+## Where to change what
+
+| To change | Edit |
+|---|---|
+| an endpoint, parameter, model, field, known value or doc comment | the spec, in Cru's API repository, then `make generate` |
+| how every method or model is generated | `gen_go.py`, in Cru's API repository, then `make generate` |
+| client or request options, errors, paging, writes | `cru/` (the hand-written files: `client.go`, `options.go`, `call.go`, `errors.go`, `page.go`, `write.go`, `model.go`, `cru.go`) |
+| retries, timeouts, the refresh, redirects, headers, logging | `internal/transport` |
+| how a field is decoded | `internal/apijson` |
+| how a query parameter is written | `internal/apiquery` |
+| the version or the User-Agent | `internal/version` |
+
+A file under `cru/` that starts with `Code generated` is never edited by hand. Each package has
+its own tests, and `make cover` holds each to 85% or more by its own tests alone.

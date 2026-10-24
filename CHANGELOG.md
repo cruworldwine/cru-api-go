@@ -7,8 +7,30 @@ release may change the API incompatibly, and says so here.
 
 ## [Unreleased]
 
-The next tag is **v0.1.1**: `Version` in `cru.go` is already `"0.1.1"`. It ships everything in
-this section, including the per-resource layout already on main since v0.1.0.
+The next tag is **v0.1.1**: `Version` in `internal/version/version.go` is already `"0.1.1"`. It
+ships everything in this section, including the per-resource layout already on main since
+v0.1.0.
+
+### Changed (breaking)
+
+- **The package moved to `github.com/cruworldwine/cru-api-go/cru`.** Change the import path from
+  `github.com/cruworldwine/cru-api-go` to `github.com/cruworldwine/cru-api-go/cru`; the package is
+  still `cru`, and no exported identifier changed, so nothing else needs changing:
+
+  ```go
+  import "github.com/cruworldwine/cru-api-go/cru"
+  ```
+
+  The repository root now holds only folders and project files:
+  - `cru/` is the package users import: the generated API surface and the hand-written public
+    types;
+  - `internal/transport` (the HTTP pipeline: requests, credentials, per-call options, retries,
+    references, the OAuth refresh, the redirect guard, logging), `internal/apijson` (tolerant
+    decoding and the envelope), `internal/apiquery` (query encoding) and `internal/version`
+    (Version and the User-Agent) hold the implementation, each with its own tests;
+  - `test/integration` holds the black-box tests: the capture replay and a live smoke test;
+  - `api/openapi.yaml` is the spec copy, formerly `spec/openapi.yaml`;
+  - `docs/` has guides, and `hack/` the scripts behind a new Makefile, whose targets CI runs.
 
 ### Added
 
@@ -31,9 +53,14 @@ this section, including the per-resource layout already on main since v0.1.0.
   tests for the tolerant decoder and the request bodies, and checks that every response body is
   closed and no goroutine is left running.
 - CI (gofmt, go vet, golangci-lint, govulncheck, tests with the race detector on Go 1.23, 1.24
-  and the two latest releases, on Linux and macOS, coverage and a short fuzz run), a release
-  workflow, an API compatibility check on pull requests, Dependabot, issue and pull request
-  templates, `CONTRIBUTING.md` and `SECURITY.md`.
+  and the two latest releases, on Linux and macOS, coverage of each package and a short fuzz
+  run), a release workflow, an API compatibility check on pull requests, Dependabot, issue and
+  pull request templates, `CONTRIBUTING.md` and `SECURITY.md`.
+- A Makefile (`make help` lists its targets): `generate`, `verify-generated`, `fmt`, `vet`,
+  `lint`, `test`, `race`, `cover`, `fuzz`, `vuln`, `integration`, `examples`, `tidy`, `apidiff`
+  and `ci`, with the tools pinned by version and run with `go run`.
+- Guides in `docs/`: authentication, configuration, pagination, writes and confirmations,
+  errors, compatibility and architecture.
 
 ### Changed
 

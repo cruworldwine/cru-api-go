@@ -6,84 +6,110 @@ itself are answered at [developers.cruworldwine.com](https://developers.cruworld
 Report a security vulnerability privately, as [SECURITY.md](SECURITY.md) explains, never in an
 issue.
 
-## Building and testing
-
-You need Go 1.23 or later. The module uses the standard library only; the tools below run with
-`go run`, so nothing needs installing.
+## The layout
 
 ```
-go build ./...
-go vet ./...
-go test -race ./...
+cru/                 package cru, the only package users import (generated and hand-written)
+internal/transport/  the HTTP pipeline: requests, credentials, options, retries, refresh, logging
+internal/apijson/    tolerant JSON decoding and the envelope
+internal/apiquery/   query string encoding
+internal/version/    Version and the User-Agent
+test/integration/    black-box tests through the public API: the capture replay, a live smoke test
+examples/            programs to run
+api/openapi.yaml     the copy of the spec the code was generated from
+docs/                guides
+hack/                scripts the Makefile runs
 ```
 
-The tests make no network calls and need no credentials: every call goes to a local test
-server. `go test -cover .` reports the package's coverage, which CI keeps at 80% or more.
+No Go file lives in the root. The internal packages never import `cru`.
+[docs/architecture.md](docs/architecture.md) follows a request through them, and says where to
+change what.
 
-`TestReplayCaptures` also replays real API answers through the SDK when `CRU_CAPTURES` names a
-capture run; it is skipped otherwise. Captures hold customer data: never commit one, or copy any
-of it into a test. Every fixture in this repository is invented.
+## The Makefile
+
+You need Go 1.23 or later and make. The tools (golangci-lint, govulncheck, apidiff) are pinned by
+version in the Makefile and run with `go run`, so nothing needs installing. CI runs the same
+targets, so a check passes in CI exactly when it passes locally.
+
+| Target | What it does |
+|---|---|
+| `make` or `make help` | lists the targets |
+| `make ci` | everything CI runs: `fmt-check vet tidy-check examples lint vuln race cover`, and a short `fuzz` |
+| `make test`, `make race` | the tests, without and with the race detector |
+| `make cover` | writes `coverage.out`, prints each package's coverage and the total, and fails when a package is under 85% (`COVER_MIN`) |
+| `make fuzz` | every fuzz target, `FUZZTIME` each (default 30s) |
+| `make lint`, `make vet`, `make vuln` | golangci-lint with `.golangci.yml`, go vet, govulncheck |
+| `make fmt`, `make fmt-check` | format with gofmt, or fail on a file that is not formatted |
+| `make tidy`, `make tidy-check` | `go mod tidy`, or fail if go.mod is not tidy |
+| `make examples` | builds the example programs |
+| `make integration` | the black-box tests; needs `CRU_CAPTURES`, and `CRU_LIVE=1` adds the live smoke test |
+| `make apidiff` | the exported API changes against `BASE` (default `origin/main`) |
+| `make generate`, `make verify-generated` | regenerate the API surface, or fail if regenerating changes anything; both need `CRU_API_REPO` |
+
+### Tests
+
+The unit tests make no network calls and need no credentials: every call goes to a local test
+server. Each package is tested on its own: `cru` through its public methods (including
+`TestEveryOperation`, which calls every method with invented values for every parameter and
+checks every field of its answer), and each internal package directly.
+
+`test/integration` reaches the SDK only through its public API. `TestReplayCaptures` replays real
+API answers through the methods when `CRU_CAPTURES` names a capture run, and is skipped otherwise.
+Captures hold customer data: never commit one, or copy any of it into a test. `TestLive` calls
+the real API, read-only, when `CRU_LIVE=1` and credentials are in the environment. Every fixture
+in this repository is invented.
 
 ### Fuzzing
 
-The fuzz targets (`fuzz_test.go`) check that no answer, however malformed, makes the decoder
-panic or lose a field it can read. Their seeds run with the ordinary tests; to fuzz one:
-
-```
-go test -run '^$' -fuzz '^FuzzDecodeModels$' -fuzztime 30s .
-```
-
-The targets are `FuzzDecodeModels`, `FuzzResponse`, `FuzzNumbers` and `FuzzRequestBody`. A
-failing input is written to `testdata/fuzz/<target>/`: fix the bug, and commit that file with
-the fix so it stays a regression test.
+The fuzz targets check that no input, however malformed, makes the SDK panic or lose data:
+`FuzzDecode`, `FuzzNumbers` and `FuzzEnvelope` in `internal/apijson`, `FuzzRequestBody` in
+`internal/transport`, and `FuzzDecodeModels` and `FuzzResponse` in `cru`. Their seeds run with the
+ordinary tests. A failing input is written to the package's `testdata/fuzz/<target>/`: fix the bug,
+and commit that file with the fix so it stays a regression test.
 
 ### Linting
-
-```
-go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0 run
-go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
-```
 
 `.golangci.yml` holds the configuration. Fix a finding rather than silencing it; a `//nolint`
 names its linter and says why.
 
 ## Generated code
 
-The API surface is generated from the API's OpenAPI spec, in Cru's API repository:
+The API surface is generated from the API's OpenAPI spec, by the generator in Cru's API
+repository:
 
-- the resource files (`bids.go`, `offers.go`, `market.go`, ...), `services.go`, `values.go` and
-  `envelope.go`;
-- `replay_gen_test.go` and `sample_gen_test.go`;
-- the method table in the README, between the `sdkgen:methods` markers.
+- in `cru/`: the resource files (`bids.go`, `offers.go`, `market.go`, ...), `services.go`,
+  `values.go`, `envelope.go` and `sample_gen_test.go`;
+- `test/integration/replay_gen_test.go`;
+- `api/openapi.yaml`, and the method table in the README, between the `sdkgen:methods` markers.
 
-Each generated file starts with `// Code generated by sdkgen ... DO NOT EDIT.`, and
-`spec/openapi.yaml` is the copy of the spec it was generated from. **Never edit a generated file
-by hand**: the next generation overwrites it. A change to an endpoint, a parameter, a model or a
-doc comment is made in the spec, or in the generator, by Cru, and arrives here regenerated. Open
-an issue describing what you need.
+Each generated file starts with `// Code generated by sdkgen ... DO NOT EDIT.` **Never edit a
+generated file by hand**: the next generation overwrites it, and `make verify-generated` fails
+on it. A change to an endpoint, a parameter, a model or a doc comment is made in the spec, or in
+the generator, by Cru, and arrives here regenerated with `make generate`. Open an issue
+describing what you need.
 
-The hand-written core takes ordinary pull requests: `client.go`, `transport.go`, `call.go`,
-`options.go`, `errors.go`, `model.go`, `page.go`, `write.go`, `cru.go`, the tests other than the
-two generated ones, the examples and the documentation.
+The hand-written code takes ordinary pull requests: the hand-written files in `cru/` (`client.go`,
+`options.go`, `call.go`, `errors.go`, `model.go`, `page.go`, `write.go`, `cru.go`), the internal
+packages, the tests other than the generated ones, the examples, the docs and the tooling.
 
 ## Commits and pull requests
 
-- Keep a pull request to one change, with tests for it. Run the build, tests and linters above
-  first.
+- Keep a pull request to one change, with tests for it, and run `make ci` first.
 - Write commit subjects in the imperative, under about 72 characters, and say in the body why
   the change is made.
 - Add a line to the `[Unreleased]` section of [CHANGELOG.md](CHANGELOG.md) for anything a user
   would notice.
-- CI checks every pull request's exported API against the base branch. An incompatible change
-  fails that check unless the pull request carries the `breaking-change` label; add the label
-  only when the break is worth it, and say in the CHANGELOG what users must change.
+- CI checks every pull request's exported API against the base branch (`make apidiff`). An
+  incompatible change fails that check unless the pull request carries the `breaking-change`
+  label; add the label only when the break is worth it, and say in the CHANGELOG what users must
+  change.
 - Keep credentials, tokens and customer data out of code, tests, issues and logs.
 
 ## Releasing
 
 Releases are cut from `main` by a maintainer:
 
-1. Set `Version` in `cru.go` to the new version, such as `0.2.0`.
+1. Set `Version` in `internal/version/version.go` to the new version, such as `0.2.0`.
 2. In `CHANGELOG.md`, rename `## [Unreleased]` to `## [0.2.0] - YYYY-MM-DD`, add an empty
    `## [Unreleased]` above it, and update the compare links at the bottom.
 3. Merge that to `main`, then tag the merge commit and push the tag:
