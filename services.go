@@ -9,7 +9,7 @@ package cru
 type Resources struct {
 	// Warehouses calls GET /warehouses and GET /warehouses/{code}.
 	Warehouses *WarehousesService
-	// InbondWarehouses calls POST /warehouses/inbond, GET /warehouses/inbond and
+	// InbondWarehouses calls GET /warehouses/inbond, POST /warehouses/inbond and
 	// GET /warehouses/inbond/{id}.
 	InbondWarehouses *InbondWarehousesService
 	// Wines calls GET /wines and GET /wines/{lwin18}.
@@ -21,10 +21,10 @@ type Resources struct {
 	Market *MarketService
 	// Photos calls GET /photos/{id}.
 	Photos *PhotosService
-	// Bids calls GET /bids, POST /bids, PATCH /bids/{code}, GET /bids/{code}, DELETE /bids/{code}
+	// Bids calls GET /bids, POST /bids, DELETE /bids/{code}, GET /bids/{code}, PATCH /bids/{code}
 	// and POST /bids/{code}/renew.
 	Bids *BidsService
-	// Offers calls POST /offers, GET /offers, DELETE /offers/{code}, GET /offers/{code} and
+	// Offers calls GET /offers, POST /offers, DELETE /offers/{code}, GET /offers/{code} and
 	// PATCH /offers/{code}.
 	Offers *OffersService
 	// Portfolio calls GET /portfolio.
@@ -34,8 +34,8 @@ type Resources struct {
 	// InbondAddresses calls GET /addresses/inbond, POST /addresses/inbond and
 	// DELETE /addresses/inbond/{id}.
 	InbondAddresses *InbondAddressesService
-	// Confirmations calls DELETE /confirmations/{code}, POST /confirmations/{code} and
-	// GET /confirmations/{code}.
+	// Confirmations calls DELETE /confirmations/{code}, GET /confirmations/{code} and
+	// POST /confirmations/{code}.
 	Confirmations *ConfirmationsService
 }
 
