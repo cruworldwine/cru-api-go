@@ -59,10 +59,10 @@ linters:
     # Generated files are linted like the rest; the rules below say where a rule does not apply.
     generated: disable
     rules:
-      # cru/values.go (generated) holds the API's error codes and enum values, such as
+      # cru/core/values.go (generated) holds the API's error codes and enum values, such as
       # ErrorCodeAuthInvalidCredentials = "AUTH_INVALID_CREDENTIALS": names of things, which G101
       # takes for credentials because of the words in them.
-      - path: ^cru/values\.go$
+      - path: ^cru/core/values\.go$
         linters: [gosec]
         text: G101
       # The tests spell HTTP statuses and methods as the API's docs do: 404, "POST".

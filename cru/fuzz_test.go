@@ -3,77 +3,19 @@ package cru
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
 	"testing"
+
+	"github.com/cruworldwine/cru-api-go/cru/bids"
+	"github.com/cruworldwine/cru-api-go/internal/testkit"
 )
 
-// The fuzz targets here drive the generated models and the public methods; the decoder's own
-// targets are in internal/apijson. Seeds are the invented sample answers and a few odd shapes.
+// FuzzResponse here drives the whole response path of a Client; each package's
+// FuzzDecodeModels, in its sample_gen_test.go, its models, and internal/apijson the decoder.
 //
-//	go test -run '^$' -fuzz '^FuzzDecodeModels$' -fuzztime 30s ./cru
-
-var oddJSON = []string{
-	``, `null`, `{}`, `[]`, `"text"`, `12`, `true`, `{"a":`, `{"vintage":"2015"}`, `{"vintage":2015.5}`,
-	`{"vintage":1e400}`, `{"quantity":"9223372036854775808"}`, `{"price":"12.5"}`, `{"bids":{}}`,
-	`{"bids":[null,1,"x",{}]}`, `{"data":{"bids":"no"}}`, `{"meta":{"pagination":{"limit":"x","total":-1}}}`,
-	`{"errors":[{"code":12,"details":[]}]}`, `{"a":{"b":{"c":{"d":[[[[]]]]}}}}`, "{\"wine_name\":\"\xff\xfe\"}",
-}
-
-func addSeeds(f *testing.F) {
-	for _, s := range oddJSON {
-		f.Add([]byte(s))
-	}
-	for _, sample := range sampleCalls {
-		if sample.data != "" {
-			f.Add([]byte(sample.data))
-		}
-	}
-}
-
-// decodes checks one model: valid JSON always decodes, and the model keeps it for Raw.
-func decodes[T any, PT interface {
-	*T
-	Model
-}](t *testing.T, b []byte) {
-	v := PT(new(T))
-	err := json.Unmarshal(b, v)
-	trimmed := bytes.TrimSpace(b)
-	if json.Valid(b) {
-		if err != nil {
-			t.Fatalf("%T refused valid JSON: %v", v, err)
-		}
-		if !bytes.Equal(trimmed, []byte("null")) && len(v.Raw()) == 0 {
-			t.Fatalf("%T kept no Raw", v)
-		}
-	}
-	var list []T
-	_ = json.Unmarshal(b, &list)
-}
-
-func FuzzDecodeModels(f *testing.F) {
-	addSeeds(f)
-	f.Fuzz(func(t *testing.T, b []byte) {
-		decodes[PortfolioWine](t, b)
-		decodes[MarketWine](t, b)
-		decodes[MarketOfferDetail](t, b)
-		decodes[OwnBid](t, b)
-		decodes[BidResult](t, b)
-		decodes[Purchase](t, b)
-		decodes[Sale](t, b)
-		decodes[Confirmation](t, b)
-		decodes[StagedConfirmation](t, b)
-		decodes[Ping](t, b)
-		decodes[Meta](t, b)
-		decodes[ErrorEntry](t, b)
-		r := newActionResult(b)
-		if r == nil || r.Value == nil {
-			t.Fatal("no action result")
-		}
-	})
-}
+//	go test -run '^$' -fuzz '^FuzzResponse$' -fuzztime 30s ./cru
 
 // staticTransport answers every request with the same status and body, in memory.
 type staticTransport struct {
@@ -96,16 +38,18 @@ var fuzzStatuses = []int{200, 201, 202, 204, 400, 401, 404, 409, 410, 422, 429, 
 // FuzzResponse sends any body, with any of the API's statuses, through the whole response path
 // of each kind of method: a page, one model, a list, a write, a confirmation and Client.Do.
 func FuzzResponse(f *testing.F) {
-	for i, s := range oddJSON {
+	for i, s := range testkit.OddJSON {
 		f.Add(uint8(i), []byte(s))
 	}
-	for _, sample := range sampleCalls {
-		if sample.data != "" {
-			f.Add(uint8(0), []byte(ok(sample.data)))
-			f.Add(uint8(2), []byte(ok(sample.data)))
-		}
+	for _, data := range []string{
+		`{"bids":[` + testkit.BidJSON(testkit.BidCode) + `]}`, `{"bid":` + testkit.BidJSON(testkit.BidCode) + `}`,
+		`{"warehouses":[{"code":"UK_TEST","name":"Test Bond One"}]}`, testkit.BidResultJSON("bid.place"),
+		testkit.StagedJSON("bid.place"), `{"pong":true,"client":{"market":"uk"}}`,
+	} {
+		f.Add(uint8(0), []byte(testkit.OK(data)))
+		f.Add(uint8(2), []byte(testkit.OK(data)))
 	}
-	f.Add(uint8(4), []byte(apiError("VALIDATION_INVALID_VALUE", "No.")))
+	f.Add(uint8(4), []byte(testkit.ErrorBody("VALIDATION_INVALID_VALUE", "No.")))
 	f.Fuzz(func(t *testing.T, which uint8, body []byte) {
 		status := fuzzStatuses[int(which)%len(fuzzStatuses)]
 		c, err := NewClient(WithClientKey("ck", "cs"), WithMaxRetries(0),
@@ -128,17 +72,20 @@ func FuzzResponse(f *testing.F) {
 		if err == nil && page == nil {
 			t.Fatal("no page and no error")
 		}
-		_, err = c.Bids.Get(ctx, testBidCode)
+		_, err = c.Bids.Get(ctx, testkit.BidCode)
 		check(err)
 		_, err = c.Warehouses.List(ctx)
 		check(err)
-		w, err := c.Bids.Place(ctx, &BidsPlaceParams{LWIN18: testLWIN, Quantity: 1, Price: 1})
+		w, err := c.Bids.Place(ctx, &bids.PlaceParams{LWIN18: testkit.LWIN, Quantity: 1, Price: 1})
 		check(err)
 		if err == nil && w.Staged && w.Confirmation == nil {
 			t.Fatal("staged without a confirmation")
 		}
-		_, err = c.Confirmations.Confirm(ctx, testCnf)
+		done, err := c.Confirmations.Confirm(ctx, testkit.Cnf)
 		check(err)
+		if err == nil && !done.Staged && (done.Result == nil || done.Result.Value == nil) {
+			t.Fatal("confirmed without an action result")
+		}
 		_, err = c.Do(ctx, "GET", "/anything", nil, nil)
 		check(err)
 	})

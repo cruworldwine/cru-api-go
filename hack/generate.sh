@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Regenerates the SDK's API surface (cru/*.go marked "Code generated", the replay's call table,
-# api/openapi.yaml and the README's method table) with the generator in Cru's API repository.
+# Regenerates the SDK's API surface (the files under cru/ marked "Code generated", the replay's
+# call table, api/openapi.yaml and the README's method table) with the generator in Cru's API
+# repository.
 #
 #   CRU_API_REPO=/path/to/cru-api-checkout make generate
 #

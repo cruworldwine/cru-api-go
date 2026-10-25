@@ -10,6 +10,7 @@ import (
 	"os"
 
 	"github.com/cruworldwine/cru-api-go/cru"
+	"github.com/cruworldwine/cru-api-go/cru/market"
 )
 
 func main() {
@@ -22,7 +23,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	wine, err := client.Market.GetWine(ctx, os.Args[1], &cru.MarketGetWineParams{IncludeLastTrade: cru.Bool(true)})
+	wine, err := client.Market.GetWine(ctx, os.Args[1], &market.GetWineParams{IncludeLastTrade: cru.Bool(true)})
 	if err != nil {
 		log.Fatal(err)
 	}

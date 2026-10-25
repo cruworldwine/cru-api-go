@@ -1,9 +1,10 @@
 # Pagination
 
-A list that pages with `limit` and `offset` returns a `*cru.Page[T]`: `client.Portfolio.List`,
-`client.Offers.List`, `client.Bids.List`, `client.Market.List`, `client.Wines.Search`,
-`client.Trades.ListPurchases` and the others marked `*Page[...]` in the
-[method table](../README.md#every-method).
+A list that pages with `limit` and `offset` returns a `*core.Page[T]`, from package
+`github.com/cruworldwine/cru-api-go/cru/core`: `client.Portfolio.List` returns a
+`*core.Page[portfolio.Wine]`, `client.Bids.List` a `*core.Page[bids.OwnBid]`, and so on for
+`client.Offers.List`, `client.Market.List`, `client.Wines.Search`, `client.Trades.ListPurchases`
+and the others marked `*core.Page[...]` in the [method table](../README.md#every-method).
 
 ## Walk every item
 
@@ -11,7 +12,7 @@ A list that pages with `limit` and `offset` returns a `*cru.Page[T]`: `client.Po
 goes:
 
 ```go
-page, err := client.Portfolio.List(ctx, &cru.PortfolioListParams{Limit: cru.Int(100)})
+page, err := client.Portfolio.List(ctx, &portfolio.ListParams{Limit: cru.Int(100)})
 if err != nil {
 	return err
 }

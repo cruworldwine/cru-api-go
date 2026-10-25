@@ -2,6 +2,7 @@ package cru
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -12,7 +13,11 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
+	"github.com/cruworldwine/cru-api-go/cru/core"
+	"github.com/cruworldwine/cru-api-go/cru/portfolio"
+	"github.com/cruworldwine/cru-api-go/internal/testkit"
 	"github.com/cruworldwine/cru-api-go/internal/transport"
 )
 
@@ -61,12 +66,12 @@ func TestPartnerHeaders(t *testing.T) {
 }
 
 func TestConnectedAppHeaders(t *testing.T) {
-	s := newServer(t, always(200, ok(`{"pong":true,"client":{}}`)))
+	s := testkit.NewServer(t, testkit.Always(200, testkit.OK(`{"pong":true,"client":{}}`)))
 	c, _ := app(t, s)
 	if _, err := c.Ping(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	h := s.requests()[0].Header
+	h := s.Requests()[0].Header
 	if h.Get("Authorization") != "Bearer at_test" {
 		t.Errorf("Authorization = %q", h.Get("Authorization"))
 	}
@@ -187,13 +192,13 @@ func TestBaseURLPerMarket(t *testing.T) {
 }
 
 func TestDo(t *testing.T) {
-	s := newServer(t, func(w http.ResponseWriter, r *http.Request, n int) {
+	s := testkit.NewServer(t, func(w http.ResponseWriter, r *http.Request, n int) {
 		if r.URL.Path == "/api/v1/missing" {
-			reply(w, 404, apiError("NOT_FOUND", "No such endpoint."))
+			testkit.Reply(w, 404, testkit.ErrorBody("NOT_FOUND", "No such endpoint."))
 			return
 		}
 		w.Header().Set("X-Request-Id", "req_hdr")
-		reply(w, 201, ok(`{"thing":{"id":1}}`))
+		testkit.Reply(w, 201, testkit.OK(`{"thing":{"id":1}}`))
 	})
 	c, _ := partner(t, s)
 	ctx := context.Background()
@@ -208,18 +213,18 @@ func TestDo(t *testing.T) {
 	if string(resp.Data) != `{"thing":{"id":1}}` || !strings.Contains(string(resp.Meta), "req_test") || len(resp.Body) == 0 {
 		t.Errorf("data %s, meta %s", resp.Data, resp.Meta)
 	}
-	got := s.requests()[0]
+	got := s.Requests()[0]
 	if got.Method != "POST" || got.Query.Get("kind") != "new" || got.Query.Get("limit") != "5" {
 		t.Errorf("request %+v", got)
 	}
-	body := mustJSON(t, got.Body)
+	body := testkit.MustJSON(t, got.Body)
 	if body["name"] != "x" || !strings.HasPrefix(body["reference"].(string), "sdk_") {
 		t.Errorf("body %s", got.Body)
 	}
 
 	_, err = c.Do(ctx, "GET", "/things", nil, nil)
-	if err != nil || s.requests()[1].Body != "" {
-		t.Errorf("a GET sent a body %q, %v", s.requests()[1].Body, err)
+	if err != nil || s.Requests()[1].Body != "" {
+		t.Errorf("a GET sent a body %q, %v", s.Requests()[1].Body, err)
 	}
 	_, err = c.Do(ctx, "GET", "/missing", nil, nil)
 	var apiErr *APIError
@@ -227,20 +232,23 @@ func TestDo(t *testing.T) {
 		t.Errorf("err = %v", err)
 	}
 	raw := []byte(`{"reference":"mine-1","x":1}`)
-	if _, err := c.Do(ctx, "PUT", "/things", nil, raw); err != nil || s.requests()[3].Body != string(raw) {
-		t.Errorf("raw body sent as %q, %v", s.requests()[3].Body, err)
+	if _, err := c.Do(ctx, "PUT", "/things", nil, raw); err != nil || s.Requests()[3].Body != string(raw) {
+		t.Errorf("raw body sent as %q, %v", s.Requests()[3].Body, err)
+	}
+	if _, err := c.Do(ctx, "GET", "no-slash", nil, nil); err != nil || s.Requests()[4].Path != "/no-slash" {
+		t.Errorf("a path without a leading slash went to %s, %v", s.Requests()[4].Path, err)
 	}
 }
 
 func TestConcurrentUse(t *testing.T) {
-	s := newServer(t, always(200, ok(`{"bid":`+bidJSON(testBidCode)+`}`)))
+	s := testkit.NewServer(t, testkit.Always(200, testkit.OK(`{"bid":`+testkit.BidJSON(testkit.BidCode)+`}`)))
 	c, _ := app(t, s)
 	var wg sync.WaitGroup
 	for range 20 {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if _, err := c.Bids.Get(context.Background(), testBidCode); err != nil {
+			if _, err := c.Bids.Get(context.Background(), testkit.BidCode); err != nil {
 				t.Error(err)
 			}
 		}()
@@ -262,12 +270,12 @@ func TestUserAgent(t *testing.T) {
 		{"no name", WithAppInfo("", "1.0", "https://example.test"), ""},
 		{"no header injection", WithAppInfo("evil\r\nX-Injected: 1", "1\n", ""), " evilX-Injected: 1/1"},
 	} {
-		s := newServer(t, always(200, ok(`{"pong":true}`)))
+		s := testkit.NewServer(t, testkit.Always(200, testkit.OK(`{"pong":true}`)))
 		c, _ := partner(t, s, tc.opt)
 		if _, err := c.Ping(context.Background()); err != nil {
 			t.Fatal(err)
 		}
-		ua := s.requests()[0].Header.Get("User-Agent")
+		ua := s.Requests()[0].Header.Get("User-Agent")
 		if loc := base.FindStringIndex(ua); loc == nil || ua[loc[1]:] != tc.suffix {
 			t.Errorf("%s: User-Agent %q", tc.name, ua)
 		}
@@ -294,15 +302,15 @@ func TestMarketCodes(t *testing.T) {
 }
 
 func TestRedirects(t *testing.T) {
-	other := newServer(t, always(200, ok(`{"pong":true}`)))
-	s := newServer(t, func(w http.ResponseWriter, r *http.Request, n int) {
+	other := testkit.NewServer(t, testkit.Always(200, testkit.OK(`{"pong":true}`)))
+	s := testkit.NewServer(t, func(w http.ResponseWriter, r *http.Request, n int) {
 		switch r.URL.Path {
 		case "/api/v1/away":
-			http.Redirect(w, r, other.URL+"/api/v1/ping", http.StatusTemporaryRedirect)
+			http.Redirect(w, r, other.BaseURL()+"/ping", http.StatusTemporaryRedirect)
 		case "/api/v1/here":
 			http.Redirect(w, r, "/api/v1/ping", http.StatusTemporaryRedirect)
 		default:
-			reply(w, 200, ok(`{"pong":true}`))
+			testkit.Reply(w, 200, testkit.OK(`{"pong":true}`))
 		}
 	})
 	c, sleeps := partner(t, s)
@@ -311,13 +319,13 @@ func TestRedirects(t *testing.T) {
 	var ce *ConnectionError
 	var apiErr *APIError
 	if !errors.Is(err, transport.ErrRedirect) || errors.As(err, &ce) || errors.As(err, &apiErr) ||
-		len(other.requests()) != 0 || len(sleeps.all()) != 0 {
-		t.Errorf("a redirect to another host: %v; %d requests there, %d retries", err, len(other.requests()), len(sleeps.all()))
+		len(other.Requests()) != 0 || len(sleeps.all()) != 0 {
+		t.Errorf("a redirect to another host: %v; %d requests there, %d retries", err, len(other.Requests()), len(sleeps.all()))
 	}
 	if _, err := c.Do(ctx, "GET", "/here", nil, nil); err != nil {
 		t.Fatalf("a redirect on the same host: %v", err)
 	}
-	if got := s.requests()[2]; got.Path != "/ping" || got.Header.Get("Client-Secret") != "cs_test" {
+	if got := s.Requests()[2]; got.Path != "/ping" || got.Header.Get("Client-Secret") != "cs_test" {
 		t.Errorf("the redirect went to %s with secret %q", got.Path, got.Header.Get("Client-Secret"))
 	}
 }
@@ -350,7 +358,7 @@ func TestWithLogger(t *testing.T) {
 		defer mu.Unlock()
 		return buf.Write(p)
 	}), &slog.HandlerOptions{Level: slog.LevelDebug}))
-	s := newServer(t, always(200, ok(`{"pong":true}`)))
+	s := testkit.NewServer(t, testkit.Always(200, testkit.OK(`{"pong":true}`)))
 	c, _ := partner(t, s, WithLogger(logger))
 	if _, err := c.Ping(context.Background()); err != nil {
 		t.Fatal(err)
@@ -365,3 +373,118 @@ func TestWithLogger(t *testing.T) {
 type writerFunc func([]byte) (int, error)
 
 func (f writerFunc) Write(p []byte) (int, error) { return f(p) }
+
+func TestRefreshHandsOverTokens(t *testing.T) {
+	s := testkit.NewServer(t, func(w http.ResponseWriter, r *http.Request, n int) {
+		switch {
+		case r.URL.Path == "/api/oauth/token":
+			testkit.Reply(w, 200, `{"access_token":"at_new","refresh_token":"rt_new","token_type":"Bearer","expires_in":3600,"scope":"bids:read"}`)
+		case r.Header.Get("Authorization") == "Bearer at_new":
+			testkit.Reply(w, 200, testkit.OK(`{"bid":`+testkit.BidJSON(testkit.BidCode)+`}`))
+		default:
+			testkit.Reply(w, 401, testkit.ErrorBody("AUTH_INVALID_CREDENTIALS", "Expired."))
+		}
+	})
+	var got []Token
+	c, _ := newClient(t, s, WithAccessToken("at_old"), WithOAuthRefresh("rt_0", "app_test", "", func(tok Token) { got = append(got, tok) }))
+	if _, err := c.Bids.Get(context.Background(), testkit.BidCode); err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0].AccessToken != "at_new" || got[0].RefreshToken != "rt_new" || got[0].ExpiresIn != 3600 ||
+		got[0].TokenType != "Bearer" || got[0].Scope != "bids:read" || len(got[0].Raw) == 0 {
+		t.Errorf("onRefresh got %+v", got)
+	}
+}
+
+// TestClientOptionsReachTheTransport checks the options NewClient passes on: core and
+// internal/transport test what they do.
+func TestClientOptionsReachTheTransport(t *testing.T) {
+	s := testkit.NewServer(t, func(w http.ResponseWriter, r *http.Request, n int) {
+		if n == 0 {
+			<-r.Context().Done()
+			return
+		}
+		testkit.Reply(w, 503, testkit.ErrorBody("SERVICE_UNAVAILABLE", "Busy."))
+	})
+	c, sleeps := partner(t, s, WithTimeout(20*time.Millisecond), WithMaxRetries(0))
+	var ce *ConnectionError
+	if _, err := c.Ping(context.Background()); !errors.As(err, &ce) || !ce.Timeout() || len(sleeps.all()) != 0 {
+		t.Errorf("WithTimeout and WithMaxRetries(0): %v after %d retries", err, len(sleeps.all()))
+	}
+	c, sleeps = partner(t, s, WithMaxRetries(1), WithHTTPClient(&http.Client{}))
+	if _, err := c.Ping(context.Background()); !errors.Is(err, ErrServer) || len(sleeps.all()) != 1 {
+		t.Errorf("WithMaxRetries(1): %v after %d retries", err, len(sleeps.all()))
+	}
+}
+
+func TestNilOptionsAreIgnored(t *testing.T) {
+	s := testkit.NewServer(t, testkit.Always(200, testkit.OK(`{"pong":true}`)))
+	c, err := NewClient(nil, WithAccessToken("at"), WithBaseURL(s.BaseURL()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Ping(context.Background(), nil); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestCoreNamedAgain checks that package cru's names for core's types, values and options are
+// core's own, so code may use either.
+func TestCoreNamedAgain(t *testing.T) {
+	for i, pair := range [][2]error{
+		{ErrBadRequest, core.ErrBadRequest}, {ErrAuthentication, core.ErrAuthentication},
+		{ErrPermissionDenied, core.ErrPermissionDenied}, {ErrNotFound, core.ErrNotFound},
+		{ErrMethodNotAllowed, core.ErrMethodNotAllowed}, {ErrConflict, core.ErrConflict}, {ErrGone, core.ErrGone},
+		{ErrUnprocessable, core.ErrUnprocessable}, {ErrRateLimited, core.ErrRateLimited}, {ErrServer, core.ErrServer},
+		{ErrValidation, core.ErrValidation}, {ErrPriceChanged, core.ErrPriceChanged},
+		{ErrRequestInProgress, core.ErrRequestInProgress}, {ErrTradeRefused, core.ErrTradeRefused},
+		{ErrMissingParameter, core.ErrMissingParameter}, {ErrUnexpectedResponse, core.ErrUnexpectedResponse},
+	} {
+		if !errors.Is(pair[0], pair[1]) {
+			t.Errorf("error %d is not core's", i)
+		}
+	}
+	if !errors.Is(&APIError{StatusCode: 404}, core.ErrNotFound) || CurrencyGBP != core.CurrencyGBP || StockTypeCru != "cru" {
+		t.Error("a type or value differs from core's")
+	}
+
+	s := testkit.NewServer(t, func(w http.ResponseWriter, r *http.Request, n int) {
+		w.Header().Set("X-Request-Id", "req_header")
+		testkit.Reply(w, 200, testkit.OK(`{"thing":true}`))
+	})
+	c, _ := partner(t, s)
+	var meta ResponseMeta
+	opts := []RequestOption{WithRequestHeader("X-Trace", "t1"), WithRequestTimeout(time.Minute), WithRequestMaxRetries(0),
+		WithExtraQuery("extra", "1"), WithExtraBodyField("field", 2), WithResponseInto(&meta)}
+	if _, err := c.Do(context.Background(), "POST", "/things", nil, nil, opts...); err != nil {
+		t.Fatal(err)
+	}
+	got := s.Requests()[0]
+	if got.Header.Get("X-Trace") != "t1" || got.Query.Get("extra") != "1" || testkit.MustJSON(t, got.Body)["field"] != 2.0 ||
+		meta.StatusCode != 200 || meta.RequestID != "req_test" {
+		t.Errorf("sent %+v, meta %+v", got, meta)
+	}
+
+	var line portfolio.Line
+	if err := json.Unmarshal([]byte(`{"portfolio_id":"P-1","future":"yes"}`), &line); err != nil {
+		t.Fatal(err)
+	}
+	var future string
+	var model Model = &line
+	if found, err := Field(model, "future", &future); !found || err != nil || future != "yes" {
+		t.Errorf("Field: %v, %v, %q", found, err, future)
+	}
+}
+
+func TestValueReadsNullableFields(t *testing.T) {
+	var w portfolio.Wine
+	if err := json.Unmarshal([]byte(`{"lwin18":"1","wine_name":"Example 2016","vintage":null}`), &w); err != nil {
+		t.Fatal(err)
+	}
+	if Value(w.WineName) != "Example 2016" || Value(w.Vintage) != 0 || Value(w.MarketPrice) != 0 {
+		t.Errorf("Value: %q %d %v", Value(w.WineName), Value(w.Vintage), Value(w.MarketPrice))
+	}
+	if *String("a") != "a" || *Int(1) != 1 || *Float(1.5) != 1.5 || !*Bool(true) {
+		t.Error("a pointer helper lost its value")
+	}
+}

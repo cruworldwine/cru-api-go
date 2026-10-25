@@ -8,6 +8,10 @@ A call fails in one of three ways.
 | `*cru.ConnectionError` | no answer came: the connection failed, or the attempt timed out (`Timeout()`) |
 | the context's error | the context was cancelled or its deadline passed |
 
+The error types and kinds are declared in package `core`, and package `cru` names them again:
+`cru.APIError` is `core.APIError` and `cru.ErrNotFound` is `core.ErrNotFound`, so `errors.As`
+and `errors.Is` work with either.
+
 Some calls fail before anything is sent: a required path parameter that is empty wraps
 `cru.ErrMissingParameter`, and a request option that cannot apply (such as a credential header in
 `WithRequestHeader`) says why. A successful answer that cannot be read, because it is not the
@@ -41,7 +45,7 @@ case errors.Is(err, cru.ErrValidation):   // any VALIDATION_* code
 | `ErrRequestInProgress` | `REQUEST_IN_PROGRESS`: an earlier request with this reference is running |
 | `ErrTradeRefused` | `TRADE_REFUSED`: Cru could not carry the instruction out |
 
-The kinds are only ever matched, never returned themselves. The codes are the `ErrorCode*`
+The kinds are only ever matched, never returned themselves. The codes are the `cru.ErrorCode*`
 constants; a code added since this SDK was released is still in `Code`.
 
 ## Reading the details

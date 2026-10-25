@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/cruworldwine/cru-api-go/cru"
+	"github.com/cruworldwine/cru-api-go/cru/market"
 )
 
 // TestLive is a smoke test against the real API, with the credentials in the environment. Every
@@ -38,7 +39,7 @@ func TestLive(t *testing.T) {
 	}
 	t.Logf("%d warehouses", len(warehouses))
 
-	page, err := client.Market.List(ctx, &cru.MarketListParams{Limit: cru.Int(1)})
+	page, err := client.Market.List(ctx, &market.ListParams{Limit: cru.Int(1)})
 	if err != nil {
 		t.Fatal(err)
 	}

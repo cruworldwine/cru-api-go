@@ -15,9 +15,11 @@ change on the API's side never breaks a program built with an older SDK.
   }
   ```
 
-- **Fields with known values are plain strings.** The known values are constants
-  (`cru.CurrencyGBP`, `cru.BidStatusLive`, `cru.ActionBidPlace`, ...), and any other value
-  decodes as it is. Compare with the constants; do not assume the list is complete.
+- **Fields with known values are plain strings.** The known values are constants, and any other
+  value decodes as it is. Compare with the constants; do not assume the list is complete. Values
+  one resource uses are in its package (`bids.StatusLive`, `trades.SaleStatusTransferNeeded`);
+  values several use are in `core`, and named again in `cru` (`cru.CurrencyGBP`,
+  `cru.ActionBidPlace`, `cru.StockTypeCru`).
 - **Nullable or optional fields are pointers**, nil for null or absent; `cru.Value(p)` reads one,
   or gives the zero value. Required, non-nullable fields are plain values. Lists are slices and
   free-form objects maps, nil when null or absent.
@@ -46,12 +48,21 @@ The latest minor version receives fixes, security fixes included ([SECURITY.md](
 The SDK supports the two latest Go releases, and Go 1.23 as its floor. CI tests all of them.
 It uses the standard library only.
 
-## Import path
+## Import paths
 
-The package users import is `github.com/cruworldwine/cru-api-go/cru`. In v0.1.0 it was the
-module root, `github.com/cruworldwine/cru-api-go`; the identifiers did not change, so moving
-needs the import path changed and nothing else:
+A program imports `github.com/cruworldwine/cru-api-go/cru` first, and the package of each
+resource it uses, under it:
 
 ```go
-import "github.com/cruworldwine/cru-api-go/cru"
+import (
+	"github.com/cruworldwine/cru-api-go/cru"
+	"github.com/cruworldwine/cru-api-go/cru/bids"
+	"github.com/cruworldwine/cru-api-go/cru/core" // for *core.Page and *core.Write, when you name them
+)
 ```
+
+In v0.1.0 everything was in one package at the module root, `github.com/cruworldwine/cru-api-go`.
+Moving from it means the import path, and the names of parameters and models, which are now in
+their resource's package without the prefix that repeated it: `cru.BidsListParams` is
+`bids.ListParams`, `cru.MarketBid` is `market.Bid`, `cru.BidStatusLive` is `bids.StatusLive`.
+[CHANGELOG.md](../CHANGELOG.md) has the rule and the full list.

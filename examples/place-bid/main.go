@@ -15,6 +15,8 @@ import (
 	"strings"
 
 	"github.com/cruworldwine/cru-api-go/cru"
+	"github.com/cruworldwine/cru-api-go/cru/bids"
+	"github.com/cruworldwine/cru-api-go/cru/core"
 )
 
 func main() {
@@ -35,7 +37,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	w, err := client.Bids.Place(ctx, &cru.BidsPlaceParams{LWIN18: os.Args[1], Quantity: quantity, Price: price})
+	w, err := client.Bids.Place(ctx, &bids.PlaceParams{LWIN18: os.Args[1], Quantity: quantity, Price: price})
 	var apiErr *cru.APIError
 	if errors.As(err, &apiErr) {
 		log.Fatalf("refused: %s %s (request %s)", apiErr.Code, apiErr.Message, apiErr.RequestID)
@@ -54,11 +56,11 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		result, ok := done.Result.Value.(*cru.BidResult)
+		result, ok := done.Result.Value.(*bids.Result)
 		if !ok {
 			log.Fatalf("unexpected result %T", done.Result.Value)
 		}
-		w = &cru.Write[cru.BidResult]{Result: result}
+		w = &core.Write[bids.Result]{Result: result}
 	}
 	bid := w.Result.Bid
 	fmt.Printf("Bid %s: %d x %.2f %s, %s, expires %s\n", bid.Code, bid.Quantity, bid.Price, bid.Currency, bid.Status, cru.Value(bid.ExpiresOn))

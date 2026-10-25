@@ -60,8 +60,14 @@ Unset options fall back to `CRU_CLIENT_KEY`, `CRU_CLIENT_SECRET`, `CRU_ACCESS_TO
 
 ## Typed models
 
+Each resource is a package of its own under `cru/`, named after its path: `bids`, `offers`,
+`market`, `portfolio`, `trades`, `wines`, `warehouses`, `addresses`, `confirmations` and `photos`.
+It holds the parameters of the resource's methods and the models they return:
+
 ```go
-page, err := client.Portfolio.List(ctx, &cru.PortfolioListParams{IsListed: cru.Bool(true)})
+import "github.com/cruworldwine/cru-api-go/cru/portfolio"
+
+page, err := client.Portfolio.List(ctx, &portfolio.ListParams{IsListed: cru.Bool(true)})
 if err != nil {
 	return err
 }
@@ -79,7 +85,10 @@ for wine, err := range page.All(ctx) { // fetches the next pages as it goes
 Parameters go in one struct per call: required ones are values, optional ones pointers set with
 `cru.String`, `cru.Int`, `cru.Float` and `cru.Bool`. Nullable fields are pointers, read with
 `cru.Value`. Every method also takes trailing request options, such as
-`cru.WithRequestTimeout(5*time.Second)`.
+`cru.WithRequestTimeout(5*time.Second)`. What every resource shares, `Page` and `Write`, is in
+package `core`: the page above is a `*core.Page[portfolio.Wine]`. The errors, request options and
+known values shared across resources are in `core` too, and package `cru` names them again, so
+code reads `cru.APIError`, `cru.ErrNotFound` and `cru.CurrencyGBP`.
 
 ## Documentation
 
@@ -122,43 +131,43 @@ the full description. Every method also takes trailing `...cru.RequestOption`.
 <!-- sdkgen:methods -->
 | Method | Endpoint | Returns |
 |---|---|---|
-| `client.Ping(ctx)` | `GET /ping` | `*Ping` |
-| `client.Portfolio.List(ctx, *PortfolioListParams)` | `GET /portfolio` | `*Page[PortfolioWine]` |
-| `client.Offers.List(ctx, *OffersListParams)` | `GET /offers` | `*Page[PortfolioWine]` |
-| `client.Offers.Create(ctx, *OffersCreateParams)` | `POST /offers` | `*Write[OfferResult]` |
-| `client.Offers.Get(ctx, code)` | `GET /offers/{code}` | `*PortfolioWine` |
-| `client.Offers.Update(ctx, code, *OffersUpdateParams)` | `PATCH /offers/{code}` | `*Write[OfferResult]` |
-| `client.Offers.Remove(ctx, code, *OffersRemoveParams)` | `DELETE /offers/{code}` | `*Write[OfferRemoveResult]` |
-| `client.Bids.List(ctx, *BidsListParams)` | `GET /bids` | `*Page[OwnBid]` |
-| `client.Bids.Place(ctx, *BidsPlaceParams)` | `POST /bids` | `*Write[BidResult]` |
-| `client.Bids.Get(ctx, code)` | `GET /bids/{code}` | `*OwnBid` |
-| `client.Bids.Update(ctx, code, *BidsUpdateParams)` | `PATCH /bids/{code}` | `*Write[BidResult]` |
-| `client.Bids.Cancel(ctx, code, *BidsCancelParams)` | `DELETE /bids/{code}` | `*Write[BidResult]` |
-| `client.Bids.Renew(ctx, code, *BidsRenewParams)` | `POST /bids/{code}/renew` | `*Write[BidResult]` |
-| `client.Market.List(ctx, *MarketListParams)` | `GET /market` | `*Page[MarketWine]` |
-| `client.Market.GetWine(ctx, lwin18, *MarketGetWineParams)` | `GET /market/wines/{lwin18}` | `*MarketWine` |
-| `client.Market.ListBids(ctx, *MarketListBidsParams)` | `GET /market/bids` | `*Page[MarketWine]` |
-| `client.Market.GetBid(ctx, code)` | `GET /market/bids/{code}` | `*MarketBidDetail` |
-| `client.Market.GetWineBids(ctx, lwin18, *MarketGetWineBidsParams)` | `GET /market/wines/{lwin18}/bids` | `*MarketWine` |
-| `client.Market.ListOffers(ctx, *MarketListOffersParams)` | `GET /market/offers` | `*Page[MarketWine]` |
-| `client.Market.GetOffer(ctx, code)` | `GET /market/offers/{code}` | `*MarketOfferDetail` |
-| `client.Market.GetWineOffers(ctx, lwin18, *MarketGetWineOffersParams)` | `GET /market/wines/{lwin18}/offers` | `*MarketWine` |
-| `client.Market.BuyOffer(ctx, code, *MarketBuyOfferParams)` | `POST /market/offers/{code}/buy` | `*Write[BuyResult]` |
-| `client.Market.SellToBid(ctx, code, *MarketSellToBidParams)` | `POST /market/bids/{code}/sell` | `*Write[SellResult]` |
-| `client.Wines.Search(ctx, *WinesSearchParams)` | `GET /wines` | `*Page[Wine]` |
-| `client.Wines.Get(ctx, lwin18)` | `GET /wines/{lwin18}` | `*WineDetail` |
-| `client.Trades.ListPurchases(ctx, *TradesListPurchasesParams)` | `GET /trades/purchases` | `*Page[Purchase]` |
-| `client.Trades.ListSales(ctx, *TradesListSalesParams)` | `GET /trades/sales` | `*Page[Sale]` |
-| `client.Warehouses.List(ctx)` | `GET /warehouses` | `[]Warehouse` |
-| `client.Warehouses.Get(ctx, code)` | `GET /warehouses/{code}` | `*Warehouse` |
-| `client.InbondWarehouses.List(ctx)` | `GET /warehouses/inbond` | `[]InbondWarehouse` |
-| `client.InbondWarehouses.Suggest(ctx, *InbondWarehousesSuggestParams)` | `POST /warehouses/inbond` | `*Write[InbondWarehouseResult]` |
-| `client.InbondWarehouses.Get(ctx, id)` | `GET /warehouses/inbond/{id}` | `*InbondWarehouse` |
-| `client.InbondAddresses.List(ctx)` | `GET /addresses/inbond` | `[]InbondAddress` |
-| `client.InbondAddresses.Add(ctx, *InbondAddressesAddParams)` | `POST /addresses/inbond` | `*Write[InbondAddressResult]` |
-| `client.InbondAddresses.Remove(ctx, id, *InbondAddressesRemoveParams)` | `DELETE /addresses/inbond/{id}` | `*Write[InbondAddressResult]` |
-| `client.Confirmations.Get(ctx, code)` | `GET /confirmations/{code}` | `*Confirmation` |
-| `client.Confirmations.Confirm(ctx, code)` | `POST /confirmations/{code}` | `*Write[ActionResult]` |
+| `client.Ping(ctx)` | `GET /ping` | `*cru.Ping` |
+| `client.Portfolio.List(ctx, *portfolio.ListParams)` | `GET /portfolio` | `*core.Page[portfolio.Wine]` |
+| `client.Offers.List(ctx, *offers.ListParams)` | `GET /offers` | `*core.Page[portfolio.Wine]` |
+| `client.Offers.Create(ctx, *offers.CreateParams)` | `POST /offers` | `*core.Write[offers.Result]` |
+| `client.Offers.Get(ctx, code)` | `GET /offers/{code}` | `*portfolio.Wine` |
+| `client.Offers.Update(ctx, code, *offers.UpdateParams)` | `PATCH /offers/{code}` | `*core.Write[offers.Result]` |
+| `client.Offers.Remove(ctx, code, *offers.RemoveParams)` | `DELETE /offers/{code}` | `*core.Write[offers.RemoveResult]` |
+| `client.Bids.List(ctx, *bids.ListParams)` | `GET /bids` | `*core.Page[bids.OwnBid]` |
+| `client.Bids.Place(ctx, *bids.PlaceParams)` | `POST /bids` | `*core.Write[bids.Result]` |
+| `client.Bids.Get(ctx, code)` | `GET /bids/{code}` | `*bids.OwnBid` |
+| `client.Bids.Update(ctx, code, *bids.UpdateParams)` | `PATCH /bids/{code}` | `*core.Write[bids.Result]` |
+| `client.Bids.Cancel(ctx, code, *bids.CancelParams)` | `DELETE /bids/{code}` | `*core.Write[bids.Result]` |
+| `client.Bids.Renew(ctx, code, *bids.RenewParams)` | `POST /bids/{code}/renew` | `*core.Write[bids.Result]` |
+| `client.Market.List(ctx, *market.ListParams)` | `GET /market` | `*core.Page[market.Wine]` |
+| `client.Market.GetWine(ctx, lwin18, *market.GetWineParams)` | `GET /market/wines/{lwin18}` | `*market.Wine` |
+| `client.Market.ListBids(ctx, *market.ListBidsParams)` | `GET /market/bids` | `*core.Page[market.Wine]` |
+| `client.Market.GetBid(ctx, code)` | `GET /market/bids/{code}` | `*market.BidDetail` |
+| `client.Market.GetWineBids(ctx, lwin18, *market.GetWineBidsParams)` | `GET /market/wines/{lwin18}/bids` | `*market.Wine` |
+| `client.Market.ListOffers(ctx, *market.ListOffersParams)` | `GET /market/offers` | `*core.Page[market.Wine]` |
+| `client.Market.GetOffer(ctx, code)` | `GET /market/offers/{code}` | `*market.OfferDetail` |
+| `client.Market.GetWineOffers(ctx, lwin18, *market.GetWineOffersParams)` | `GET /market/wines/{lwin18}/offers` | `*market.Wine` |
+| `client.Market.BuyOffer(ctx, code, *market.BuyOfferParams)` | `POST /market/offers/{code}/buy` | `*core.Write[market.BuyResult]` |
+| `client.Market.SellToBid(ctx, code, *market.SellToBidParams)` | `POST /market/bids/{code}/sell` | `*core.Write[market.SellResult]` |
+| `client.Wines.Search(ctx, *wines.SearchParams)` | `GET /wines` | `*core.Page[wines.Wine]` |
+| `client.Wines.Get(ctx, lwin18)` | `GET /wines/{lwin18}` | `*wines.Detail` |
+| `client.Trades.ListPurchases(ctx, *trades.ListPurchasesParams)` | `GET /trades/purchases` | `*core.Page[trades.Purchase]` |
+| `client.Trades.ListSales(ctx, *trades.ListSalesParams)` | `GET /trades/sales` | `*core.Page[trades.Sale]` |
+| `client.Warehouses.List(ctx)` | `GET /warehouses` | `[]warehouses.Warehouse` |
+| `client.Warehouses.Get(ctx, code)` | `GET /warehouses/{code}` | `*warehouses.Warehouse` |
+| `client.InbondWarehouses.List(ctx)` | `GET /warehouses/inbond` | `[]warehouses.InbondWarehouse` |
+| `client.InbondWarehouses.Suggest(ctx, *warehouses.InbondSuggestParams)` | `POST /warehouses/inbond` | `*core.Write[warehouses.InbondWarehouseResult]` |
+| `client.InbondWarehouses.Get(ctx, id)` | `GET /warehouses/inbond/{id}` | `*warehouses.InbondWarehouse` |
+| `client.InbondAddresses.List(ctx)` | `GET /addresses/inbond` | `[]addresses.InbondAddress` |
+| `client.InbondAddresses.Add(ctx, *addresses.InbondAddParams)` | `POST /addresses/inbond` | `*core.Write[addresses.InbondAddressResult]` |
+| `client.InbondAddresses.Remove(ctx, id, *addresses.InbondRemoveParams)` | `DELETE /addresses/inbond/{id}` | `*core.Write[addresses.InbondAddressResult]` |
+| `client.Confirmations.Get(ctx, code)` | `GET /confirmations/{code}` | `*confirmations.Confirmation` |
+| `client.Confirmations.Confirm(ctx, code)` | `POST /confirmations/{code}` | `*core.Write[confirmations.ActionResult]` |
 | `client.Confirmations.Cancel(ctx, code)` | `DELETE /confirmations/{code}` | `error only` |
 | `client.Photos.Get(ctx, id)` | `GET /photos/{id}` | `[]byte` |
 <!-- /sdkgen:methods -->
