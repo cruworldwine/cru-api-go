@@ -9,11 +9,18 @@ issue.
 ## The layout
 
 ```
-cru/                 package cru, the only package users import (generated and hand-written)
+cru/                 package cru, the front door: Client, its options, Ping, Do
+cru/core/            what the resources share: Page, Write, errors, request options, envelope models
+cru/<resource>/      one package per resource (bids, offers, market, portfolio, trades, wines,
+                     warehouses, addresses, confirmations, photos): its service, parameters,
+                     models and known values
+internal/caller/     how a generated method calls: Endpoint, GetOne, GetPage, DoWrite, ...
+internal/corelink/   how the internal packages reach what core keeps unexported
 internal/transport/  the HTTP pipeline: requests, credentials, options, retries, refresh, logging
 internal/apijson/    tolerant JSON decoding and the envelope
 internal/apiquery/   query string encoding
 internal/version/    Version and the User-Agent
+internal/testkit/    what the unit tests share; only tests import it
 test/integration/    black-box tests through the public API: the capture replay, a live smoke test
 examples/            programs to run
 api/openapi.yaml     the copy of the spec the code was generated from
@@ -21,9 +28,10 @@ docs/                guides
 hack/                scripts the Makefile runs
 ```
 
-No Go file lives in the root. The internal packages never import `cru`.
-[docs/architecture.md](docs/architecture.md) follows a request through them, and says where to
-change what.
+No Go file lives in the root. Imports go one way: `cru` imports the resource packages, they
+import `core`, and nothing imports `cru`; no internal package imports a resource package, though
+their tests may. [docs/architecture.md](docs/architecture.md) follows a request through them,
+gives the naming rule, and says where to change what.
 
 ## The Makefile
 
@@ -49,9 +57,12 @@ targets, so a check passes in CI exactly when it passes locally.
 ### Tests
 
 The unit tests make no network calls and need no credentials: every call goes to a local test
-server. Each package is tested on its own: `cru` through its public methods (including
-`TestEveryOperation`, which calls every method with invented values for every parameter and
-checks every field of its answer), and each internal package directly.
+server. Each package is tested on its own, by tests in its own folder: each resource package
+through its service (including the generated `TestEveryOperation`, which calls every method with
+invented values for every parameter and checks every field of its answer), `cru` through its
+Client, `cru/core` through calls that reach it, and each internal package directly. The helpers
+they share, such as the test server and the `TestEveryOperation` harness, are in
+`internal/testkit`.
 
 `test/integration` reaches the SDK only through its public API. `TestReplayCaptures` replays real
 API answers through the methods when `CRU_CAPTURES` names a capture run, and is skipped otherwise.
@@ -63,8 +74,9 @@ in this repository is invented.
 
 The fuzz targets check that no input, however malformed, makes the SDK panic or lose data:
 `FuzzDecode`, `FuzzNumbers` and `FuzzEnvelope` in `internal/apijson`, `FuzzRequestBody` in
-`internal/transport`, and `FuzzDecodeModels` and `FuzzResponse` in `cru`. Their seeds run with the
-ordinary tests. A failing input is written to the package's `testdata/fuzz/<target>/`: fix the bug,
+`internal/transport`, `FuzzResponse` in `cru`, and a generated `FuzzDecodeModels` over the models
+of `cru`, `cru/core` and each resource package that has models. Their seeds run with the ordinary
+tests. A failing input is written to the package's `testdata/fuzz/<target>/`: fix the bug,
 and commit that file with the fix so it stays a regression test.
 
 ### Linting
@@ -77,8 +89,10 @@ names its linter and says why.
 The API surface is generated from the API's OpenAPI spec, by the generator in Cru's API
 repository:
 
-- in `cru/`: the resource files (`bids.go`, `offers.go`, `market.go`, ...), `services.go`,
-  `values.go`, `envelope.go` and `sample_gen_test.go`;
+- each resource package, `cru/<resource>/`, but for a hand-written `example_test.go` and tests
+  of its own, and `cru/confirmations/action.go`;
+- in `cru/core/`: `models.go`, `values.go` and `models_gen_test.go`;
+- in `cru/`: `ping.go`, `services.go`, `values.go` and `sample_gen_test.go`;
 - `test/integration/replay_gen_test.go`;
 - `api/openapi.yaml`, and the method table in the README, between the `sdkgen:methods` markers.
 
@@ -89,8 +103,10 @@ the generator, by Cru, and arrives here regenerated with `make generate`. Open a
 describing what you need.
 
 The hand-written code takes ordinary pull requests: the hand-written files in `cru/` (`client.go`,
-`options.go`, `call.go`, `errors.go`, `model.go`, `page.go`, `write.go`, `cru.go`), the internal
-packages, the tests other than the generated ones, the examples, the docs and the tooling.
+`cru.go`, `doc.go`, `errors.go`, `options.go`, `model.go`) and in `cru/core/` (`doc.go`,
+`errors.go`, `options.go`, `page.go`, `write.go`, `model.go`, `link.go`),
+`cru/confirmations/action.go`, the internal packages, the tests other than the generated ones,
+the examples, the docs and the tooling.
 
 ## Commits and pull requests
 

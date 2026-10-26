@@ -9,6 +9,7 @@ import (
 	"log"
 
 	"github.com/cruworldwine/cru-api-go/cru"
+	"github.com/cruworldwine/cru-api-go/cru/portfolio"
 )
 
 func main() {
@@ -18,7 +19,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	page, err := client.Portfolio.List(ctx, &cru.PortfolioListParams{Limit: cru.Int(100)})
+	page, err := client.Portfolio.List(ctx, &portfolio.ListParams{Limit: cru.Int(100)})
 	if err != nil {
 		log.Fatal(err)
 	}

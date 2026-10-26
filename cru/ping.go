@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/cruworldwine/cru-api-go/internal/apijson"
+	"github.com/cruworldwine/cru-api-go/internal/caller"
 )
 
 // Ping tests authentication.
@@ -20,7 +21,7 @@ import (
 //
 // GET /ping. Scope: meta:read.
 func (c *Client) Ping(ctx context.Context, opts ...RequestOption) (*Ping, error) {
-	return getOne[Ping](ctx, c, endpoint{method: http.MethodGet, path: "/ping", opts: opts})
+	return caller.GetOne[Ping](ctx, c.caller, caller.Endpoint{Method: http.MethodGet, Path: "/ping", Opts: opts})
 }
 
 // APIClient is found in Ping.Client.

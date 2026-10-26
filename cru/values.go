@@ -2,156 +2,121 @@
 
 package cru
 
-// Action values are the known values of the fields that carry one. Others may appear,
-// and decode as they are.
-const (
-	ActionBidPlace               = "bid.place"
-	ActionBidUpdate              = "bid.update"
-	ActionBidCancel              = "bid.cancel"
-	ActionBidRenew               = "bid.renew"
-	ActionBidBuy                 = "bid.buy"
-	ActionOfferList              = "offer.list"
-	ActionOfferUpdate            = "offer.update"
-	ActionOfferRemove            = "offer.remove"
-	ActionOfferSell              = "offer.sell"
-	ActionInbondAddressAdd       = "inbond_address.add"
-	ActionInbondAddressRemove    = "inbond_address.remove"
-	ActionInbondWarehouseSuggest = "inbond_warehouse.suggest"
+import (
+	"github.com/cruworldwine/cru-api-go/cru/core"
 )
 
-// BidStatus values are the known values of the fields that carry one. Others may appear,
-// and decode as they are.
+// Action values are the known values of the fields that carry one, as package core declares them.
+// Others may appear, and decode as they are.
 const (
-	BidStatusLive      = "live"
-	BidStatusMatched   = "matched"
-	BidStatusComplete  = "complete"
-	BidStatusCancelled = "cancelled"
-	BidStatusExpired   = "expired"
-	BidStatusError     = "error"
+	ActionBidPlace               = core.ActionBidPlace
+	ActionBidUpdate              = core.ActionBidUpdate
+	ActionBidCancel              = core.ActionBidCancel
+	ActionBidRenew               = core.ActionBidRenew
+	ActionBidBuy                 = core.ActionBidBuy
+	ActionOfferList              = core.ActionOfferList
+	ActionOfferUpdate            = core.ActionOfferUpdate
+	ActionOfferRemove            = core.ActionOfferRemove
+	ActionOfferSell              = core.ActionOfferSell
+	ActionInbondAddressAdd       = core.ActionInbondAddressAdd
+	ActionInbondAddressRemove    = core.ActionInbondAddressRemove
+	ActionInbondWarehouseSuggest = core.ActionInbondWarehouseSuggest
 )
 
-// ConditionStatus values are the known values of the fields that carry one. Others may appear,
-// and decode as they are.
+// ConditionStatus values are the known values of the fields that carry one, as package core
+// declares them. Others may appear, and decode as they are.
 const (
-	ConditionStatusVerified       = "verified"
-	ConditionStatusClientReserves = "client_reserves"
-	ConditionStatusAPD            = "apd"
+	ConditionStatusVerified       = core.ConditionStatusVerified
+	ConditionStatusClientReserves = core.ConditionStatusClientReserves
+	ConditionStatusAPD            = core.ConditionStatusAPD
 )
 
-// ConfirmationStatus values are the known values of the fields that carry one. Others may appear,
-// and decode as they are.
+// ConfirmationStatus values are the known values of the fields that carry one, as package core
+// declares them. Others may appear, and decode as they are.
 const (
-	ConfirmationStatusPending   = "pending"
-	ConfirmationStatusExecuting = "executing"
-	ConfirmationStatusCompleted = "completed"
-	ConfirmationStatusFailed    = "failed"
-	ConfirmationStatusExpired   = "expired"
-	ConfirmationStatusCancelled = "cancelled"
+	ConfirmationStatusPending   = core.ConfirmationStatusPending
+	ConfirmationStatusExecuting = core.ConfirmationStatusExecuting
+	ConfirmationStatusCompleted = core.ConfirmationStatusCompleted
+	ConfirmationStatusFailed    = core.ConfirmationStatusFailed
+	ConfirmationStatusExpired   = core.ConfirmationStatusExpired
+	ConfirmationStatusCancelled = core.ConfirmationStatusCancelled
 )
 
-// Currency values are the known values of the fields that carry one. Others may appear,
-// and decode as they are.
+// Currency values are the known values of the fields that carry one, as package core declares them.
+// Others may appear, and decode as they are.
 const (
-	CurrencyGBP = "GBP"
-	CurrencyUSD = "USD"
-	CurrencyHKD = "HKD"
-	CurrencySGD = "SGD"
-	CurrencyEUR = "EUR"
-	CurrencyAED = "AED"
-	CurrencyCNY = "CNY"
+	CurrencyGBP = core.CurrencyGBP
+	CurrencyUSD = core.CurrencyUSD
+	CurrencyHKD = core.CurrencyHKD
+	CurrencySGD = core.CurrencySGD
+	CurrencyEUR = core.CurrencyEUR
+	CurrencyAED = core.CurrencyAED
+	CurrencyCNY = core.CurrencyCNY
 )
 
-// ErrorCode values are the known values of the fields that carry one. Others may appear,
-// and decode as they are.
+// ErrorCode values are the known values of the fields that carry one, as package core declares
+// them. Others may appear, and decode as they are.
 const (
-	ErrorCodeValidationUnknownParameter = "VALIDATION_UNKNOWN_PARAMETER"
-	ErrorCodeValidationMalformedBody    = "VALIDATION_MALFORMED_BODY"
-	ErrorCodeValidationRequiredField    = "VALIDATION_REQUIRED_FIELD"
-	ErrorCodeValidationInvalidValue     = "VALIDATION_INVALID_VALUE"
-	ErrorCodeValidationUnsupportedValue = "VALIDATION_UNSUPPORTED_VALUE"
-	ErrorCodeAuthInvalidCredentials     = "AUTH_INVALID_CREDENTIALS"
-	ErrorCodeAuthClientSuspended        = "AUTH_CLIENT_SUSPENDED"
-	ErrorCodeAuthInsufficientScope      = "AUTH_INSUFFICIENT_SCOPE"
-	ErrorCodeAuthIPNotAllowed           = "AUTH_IP_NOT_ALLOWED"
-	ErrorCodeAuthHTTPSRequired          = "AUTH_HTTPS_REQUIRED"
-	ErrorCodeAuthStoreNotAllowed        = "AUTH_STORE_NOT_ALLOWED"
-	ErrorCodeAuthAccountOnHold          = "AUTH_ACCOUNT_ON_HOLD"
-	ErrorCodeNotFound                   = "NOT_FOUND"
-	ErrorCodeBidNotFound                = "BID_NOT_FOUND"
-	ErrorCodeOfferNotFound              = "OFFER_NOT_FOUND"
-	ErrorCodeConfirmationNotFound       = "CONFIRMATION_NOT_FOUND"
-	ErrorCodeMethodNotAllowed           = "METHOD_NOT_ALLOWED"
-	ErrorCodeAPIVersionUnsupported      = "API_VERSION_UNSUPPORTED"
-	ErrorCodeRequestInProgress          = "REQUEST_IN_PROGRESS"
-	ErrorCodePriceChanged               = "PRICE_CHANGED"
-	ErrorCodeConfirmationLimitReached   = "CONFIRMATION_LIMIT_REACHED"
-	ErrorCodeConfirmationExpired        = "CONFIRMATION_EXPIRED"
-	ErrorCodeTradeRefused               = "TRADE_REFUSED"
-	ErrorCodeRateLimitExceeded          = "RATE_LIMIT_EXCEEDED"
-	ErrorCodeInternalError              = "INTERNAL_ERROR"
-	ErrorCodeServiceUnavailable         = "SERVICE_UNAVAILABLE"
+	ErrorCodeValidationUnknownParameter = core.ErrorCodeValidationUnknownParameter
+	ErrorCodeValidationMalformedBody    = core.ErrorCodeValidationMalformedBody
+	ErrorCodeValidationRequiredField    = core.ErrorCodeValidationRequiredField
+	ErrorCodeValidationInvalidValue     = core.ErrorCodeValidationInvalidValue
+	ErrorCodeValidationUnsupportedValue = core.ErrorCodeValidationUnsupportedValue
+	ErrorCodeAuthInvalidCredentials     = core.ErrorCodeAuthInvalidCredentials
+	ErrorCodeAuthClientSuspended        = core.ErrorCodeAuthClientSuspended
+	ErrorCodeAuthInsufficientScope      = core.ErrorCodeAuthInsufficientScope
+	ErrorCodeAuthIPNotAllowed           = core.ErrorCodeAuthIPNotAllowed
+	ErrorCodeAuthHTTPSRequired          = core.ErrorCodeAuthHTTPSRequired
+	ErrorCodeAuthStoreNotAllowed        = core.ErrorCodeAuthStoreNotAllowed
+	ErrorCodeAuthAccountOnHold          = core.ErrorCodeAuthAccountOnHold
+	ErrorCodeNotFound                   = core.ErrorCodeNotFound
+	ErrorCodeBidNotFound                = core.ErrorCodeBidNotFound
+	ErrorCodeOfferNotFound              = core.ErrorCodeOfferNotFound
+	ErrorCodeConfirmationNotFound       = core.ErrorCodeConfirmationNotFound
+	ErrorCodeMethodNotAllowed           = core.ErrorCodeMethodNotAllowed
+	ErrorCodeAPIVersionUnsupported      = core.ErrorCodeAPIVersionUnsupported
+	ErrorCodeRequestInProgress          = core.ErrorCodeRequestInProgress
+	ErrorCodePriceChanged               = core.ErrorCodePriceChanged
+	ErrorCodeConfirmationLimitReached   = core.ErrorCodeConfirmationLimitReached
+	ErrorCodeConfirmationExpired        = core.ErrorCodeConfirmationExpired
+	ErrorCodeTradeRefused               = core.ErrorCodeTradeRefused
+	ErrorCodeRateLimitExceeded          = core.ErrorCodeRateLimitExceeded
+	ErrorCodeInternalError              = core.ErrorCodeInternalError
+	ErrorCodeServiceUnavailable         = core.ErrorCodeServiceUnavailable
 )
 
-// LocationType values are the known values of the fields that carry one. Others may appear,
-// and decode as they are.
+// Market values are the known values of the fields that carry one, as package core declares them.
+// Others may appear, and decode as they are.
 const (
-	LocationTypeCru      = "cru"
-	LocationTypeInbond   = "inbond"
-	LocationTypeAddress  = "address"
-	LocationTypeSupplier = "supplier"
+	MarketUK = core.MarketUK
+	MarketUS = core.MarketUS
+	MarketHK = core.MarketHK
+	MarketSG = core.MarketSG
+	MarketEU = core.MarketEU
+	MarketAE = core.MarketAE
+	MarketCN = core.MarketCN
+	MarketFR = core.MarketFR
 )
 
-// Market values are the known values of the fields that carry one. Others may appear,
-// and decode as they are.
+// ResultStatus values are the known values of the fields that carry one, as package core declares
+// them. Others may appear, and decode as they are.
 const (
-	MarketUK = "uk"
-	MarketUS = "us"
-	MarketHK = "hk"
-	MarketSG = "sg"
-	MarketEU = "eu"
-	MarketAE = "ae"
-	MarketCN = "cn"
-	MarketFR = "fr"
+	ResultStatusCompleted = core.ResultStatusCompleted
 )
 
-// PurchaseUnitStatus values are the known values of the fields that carry one. Others may appear,
-// and decode as they are.
+// StockStatus values are the known values of the fields that carry one, as package core declares
+// them. Others may appear, and decode as they are.
 const (
-	PurchaseUnitStatusInPortfolio = "in_portfolio"
-	PurchaseUnitStatusForSale     = "for_sale"
-	PurchaseUnitStatusSold        = "sold"
-	PurchaseUnitStatusInTransit   = "in_transit"
-	PurchaseUnitStatusDelivered   = "delivered"
+	StockStatusInStock   = core.StockStatusInStock
+	StockStatusInTransit = core.StockStatusInTransit
+	StockStatusDueIn     = core.StockStatusDueIn
 )
 
-// ResultStatus values are the known values of the fields that carry one. Others may appear,
-// and decode as they are.
+// StockType values are the known values of the fields that carry one, as package core declares
+// them. Others may appear, and decode as they are.
 const (
-	ResultStatusCompleted = "completed"
-)
-
-// SaleStatus values are the known values of the fields that carry one. Others may appear,
-// and decode as they are.
-const (
-	SaleStatusTransferNeeded   = "transfer_needed"
-	SaleStatusAwaitingTransfer = "awaiting_transfer"
-	SaleStatusOnPurchaseOrder  = "on_purchase_order"
-	SaleStatusDeliveredToCru   = "delivered_to_cru"
-)
-
-// StockStatus values are the known values of the fields that carry one. Others may appear,
-// and decode as they are.
-const (
-	StockStatusInStock   = "in_stock"
-	StockStatusInTransit = "in_transit"
-	StockStatusDueIn     = "due_in"
-)
-
-// StockType values are the known values of the fields that carry one. Others may appear,
-// and decode as they are.
-const (
-	StockTypeCru      = "cru"
-	StockTypeExternal = "external"
-	StockTypeSupplier = "supplier"
-	StockTypeBpo      = "bpo"
+	StockTypeCru      = core.StockTypeCru
+	StockTypeExternal = core.StockTypeExternal
+	StockTypeSupplier = core.StockTypeSupplier
+	StockTypeBpo      = core.StockTypeBpo
 )

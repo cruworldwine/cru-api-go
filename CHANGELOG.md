@@ -13,17 +13,53 @@ v0.1.0.
 
 ### Changed (breaking)
 
+- **Each resource is a package of its own, under `cru/`, and names no longer repeat their
+  package.** A resource's package is the first segment of its paths: `bids`, `offers`, `market`,
+  `portfolio`, `trades`, `wines`, `warehouses` (with `/warehouses/inbond`), `addresses`
+  (`/addresses/inbond`), `confirmations` and `photos`. Each holds the resource's service, the
+  parameters of its methods, the models it owns and its known values. `cru/core` holds what they
+  share: `Page`, `Write`, `APIError`, `ConnectionError` and the `Err` kinds, `RequestOption` and the
+  per-call options, `ResponseMeta`, `Model`, `Field`, the envelope's models and the known values
+  several resources use. Package `cru` keeps `NewClient`, the `Client` with a field per service,
+  its options, `Ping`, `Do`, `Version` and the pointer helpers, and names core's errors, request
+  options, `ResponseMeta`, `Model`, `Field` and shared known values again, as the same types and
+  values, so `cru.APIError`, `errors.Is(err, cru.ErrNotFound)` and `cru.CurrencyGBP` work as
+  before. Calls read as before, `client.Bids.List(ctx, params)`; the names of their parameters and
+  models change:
+  - a leading word that names the package, singular or plural, is dropped, unless nothing, or only
+    `Error`, would be left: `cru.BidsListParams` is `bids.ListParams`, `cru.MarketBid` is
+    `market.Bid`, `cru.PortfolioWine` is `portfolio.Wine`, `cru.BidResult` is `bids.Result`,
+    `cru.WineDetail` is `wines.Detail` and `cru.BidStatusLive` is `bids.StatusLive`, while
+    `warehouses.Warehouse` and `confirmations.ConfirmationError` keep their names;
+  - a service is named by the words of its resource that do not name its package: `cru.BidsService`
+    is `bids.Service`, `cru.InbondWarehousesService` is `warehouses.InbondService`, and its
+    `cru.InbondWarehousesSuggestParams` are `warehouses.InbondSuggestParams`;
+  - `cru.Page[T]` and `cru.Write[T]` are `core.Page[T]` and `core.Write[T]`, as Go 1.23 cannot
+    alias a generic type; `cru.StagedConfirmation` is `core.StagedConfirmation`, and
+    `cru.ActionResult` and `cru.InstructionResult` are `confirmations.ActionResult` and
+    `confirmations.InstructionResult`;
+  - the known values only one resource uses are in its package: `bids.Status*`,
+    `portfolio.LocationType*`, `trades.PurchaseUnitStatus*` and `trades.SaleStatus*`.
+
+  ```go
+  import (
+  	"github.com/cruworldwine/cru-api-go/cru"
+  	"github.com/cruworldwine/cru-api-go/cru/bids"
+  )
+
+  w, err := client.Bids.Place(ctx, &bids.PlaceParams{LWIN18: lwin, Quantity: 2, Price: 1200.5})
+  ```
 - **The package moved to `github.com/cruworldwine/cru-api-go/cru`.** Change the import path from
-  `github.com/cruworldwine/cru-api-go` to `github.com/cruworldwine/cru-api-go/cru`; the package is
-  still `cru`, and no exported identifier changed, so nothing else needs changing:
+  `github.com/cruworldwine/cru-api-go` to `github.com/cruworldwine/cru-api-go/cru`, with the
+  packages of the resources you use under it, as the entry above says:
 
   ```go
   import "github.com/cruworldwine/cru-api-go/cru"
   ```
 
   The repository root now holds only folders and project files:
-  - `cru/` is the package users import: the generated API surface and the hand-written public
-    types;
+  - `cru/` is the package users import, with a package per resource and `cru/core` under it:
+    the generated API surface and the hand-written public types;
   - `internal/transport` (the HTTP pipeline: requests, credentials, per-call options, retries,
     references, the OAuth refresh, the redirect guard, logging), `internal/apijson` (tolerant
     decoding and the envelope), `internal/apiquery` (query encoding) and `internal/version`
@@ -64,10 +100,9 @@ v0.1.0.
 
 ### Changed
 
-- Each resource is its own file, with its service, methods, parameter structs and the models it
-  returns (`portfolio.go`, `bids.go`, `offers.go`, ...); `values.go` holds the known-value
-  constants and `envelope.go` the envelope's models. No type, method or field changed. `Value(p)`
-  reads a nullable field. `examples/` has three programs, and the README a table of every method.
+- `Value(p)` reads a nullable field. `examples/` has three programs, and the README a table of
+  every method. (Each resource, first given a file of its own, is now a package of its own: see
+  Changed (breaking).)
 - **Breaking, for method values only:** every method's signature gains the trailing variadic
   `opts ...RequestOption`. Calls compile unchanged. Code that stores a method in a variable of
   the old function type, or declares an interface with the old signatures, needs the new

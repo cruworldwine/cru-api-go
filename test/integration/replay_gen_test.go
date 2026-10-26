@@ -6,6 +6,14 @@ import (
 	"context"
 
 	"github.com/cruworldwine/cru-api-go/cru"
+	"github.com/cruworldwine/cru-api-go/cru/addresses"
+	"github.com/cruworldwine/cru-api-go/cru/bids"
+	"github.com/cruworldwine/cru-api-go/cru/market"
+	"github.com/cruworldwine/cru-api-go/cru/offers"
+	"github.com/cruworldwine/cru-api-go/cru/portfolio"
+	"github.com/cruworldwine/cru-api-go/cru/trades"
+	"github.com/cruworldwine/cru-api-go/cru/warehouses"
+	"github.com/cruworldwine/cru-api-go/cru/wines"
 )
 
 var replayOps = []replayOp{
@@ -36,7 +44,7 @@ var replayOps = []replayOp{
 	{
 		id: "suggestInbondWarehouse", method: "POST", path: "/warehouses/inbond", kind: "write", key: "",
 		call: func(ctx context.Context, c *cru.Client, in *replayInput) (any, error) {
-			p := &cru.InbondWarehousesSuggestParams{}
+			p := &warehouses.InbondSuggestParams{}
 			in.decodeBody(p)
 			return c.InbondWarehouses.Suggest(ctx, p, in.opts...)
 		},
@@ -50,7 +58,7 @@ var replayOps = []replayOp{
 	{
 		id: "searchWines", method: "GET", path: "/wines", kind: "page", key: "wines",
 		call: func(ctx context.Context, c *cru.Client, in *replayInput) (any, error) {
-			p := &cru.WinesSearchParams{}
+			p := &wines.SearchParams{}
 			p.Q = in.strValue("q")
 			p.Vintage = in.int("vintage")
 			p.PackSize = in.str("pack_size")
@@ -68,7 +76,7 @@ var replayOps = []replayOp{
 	{
 		id: "listMarket", method: "GET", path: "/market", kind: "page", key: "markets",
 		call: func(ctx context.Context, c *cru.Client, in *replayInput) (any, error) {
-			p := &cru.MarketListParams{}
+			p := &market.ListParams{}
 			p.Limit = in.int("limit")
 			p.Offset = in.int("offset")
 			p.LWIN = in.list("lwin")
@@ -81,7 +89,7 @@ var replayOps = []replayOp{
 	{
 		id: "getMarketWine", method: "GET", path: "/market/wines/{lwin18}", kind: "get", key: "market",
 		call: func(ctx context.Context, c *cru.Client, in *replayInput) (any, error) {
-			p := &cru.MarketGetWineParams{}
+			p := &market.GetWineParams{}
 			p.Depth = in.int("depth")
 			p.IncludeMarketPrice = in.bool("include_market_price")
 			p.IncludeLastTrade = in.bool("include_last_trade")
@@ -91,7 +99,7 @@ var replayOps = []replayOp{
 	{
 		id: "listMarketBids", method: "GET", path: "/market/bids", kind: "page", key: "markets",
 		call: func(ctx context.Context, c *cru.Client, in *replayInput) (any, error) {
-			p := &cru.MarketListBidsParams{}
+			p := &market.ListBidsParams{}
 			p.Limit = in.int("limit")
 			p.Offset = in.int("offset")
 			p.LWIN = in.list("lwin")
@@ -115,7 +123,7 @@ var replayOps = []replayOp{
 	{
 		id: "getMarketWineBids", method: "GET", path: "/market/wines/{lwin18}/bids", kind: "get", key: "market",
 		call: func(ctx context.Context, c *cru.Client, in *replayInput) (any, error) {
-			p := &cru.MarketGetWineBidsParams{}
+			p := &market.GetWineBidsParams{}
 			p.MinPrice = in.int("min_price")
 			p.MaxPrice = in.int("max_price")
 			p.Depth = in.int("depth")
@@ -129,7 +137,7 @@ var replayOps = []replayOp{
 	{
 		id: "listMarketOffers", method: "GET", path: "/market/offers", kind: "page", key: "markets",
 		call: func(ctx context.Context, c *cru.Client, in *replayInput) (any, error) {
-			p := &cru.MarketListOffersParams{}
+			p := &market.ListOffersParams{}
 			p.Limit = in.int("limit")
 			p.Offset = in.int("offset")
 			p.LWIN = in.list("lwin")
@@ -150,7 +158,7 @@ var replayOps = []replayOp{
 	{
 		id: "getMarketWineOffers", method: "GET", path: "/market/wines/{lwin18}/offers", kind: "get", key: "market",
 		call: func(ctx context.Context, c *cru.Client, in *replayInput) (any, error) {
-			p := &cru.MarketGetWineOffersParams{}
+			p := &market.GetWineOffersParams{}
 			p.MinPrice = in.int("min_price")
 			p.MaxPrice = in.int("max_price")
 			p.Depth = in.int("depth")
@@ -168,7 +176,7 @@ var replayOps = []replayOp{
 	{
 		id: "listBids", method: "GET", path: "/bids", kind: "page", key: "bids",
 		call: func(ctx context.Context, c *cru.Client, in *replayInput) (any, error) {
-			p := &cru.BidsListParams{}
+			p := &bids.ListParams{}
 			p.Status = in.list("status")
 			p.LWIN = in.list("lwin")
 			p.ClientRef = in.str("client_ref")
@@ -180,7 +188,7 @@ var replayOps = []replayOp{
 	{
 		id: "placeBid", method: "POST", path: "/bids", kind: "write", key: "",
 		call: func(ctx context.Context, c *cru.Client, in *replayInput) (any, error) {
-			p := &cru.BidsPlaceParams{}
+			p := &bids.PlaceParams{}
 			in.decodeBody(p)
 			return c.Bids.Place(ctx, p, in.opts...)
 		},
@@ -194,7 +202,7 @@ var replayOps = []replayOp{
 	{
 		id: "updateBid", method: "PATCH", path: "/bids/{code}", kind: "write", key: "",
 		call: func(ctx context.Context, c *cru.Client, in *replayInput) (any, error) {
-			p := &cru.BidsUpdateParams{}
+			p := &bids.UpdateParams{}
 			in.decodeBody(p)
 			return c.Bids.Update(ctx, in.path("code"), p, in.opts...)
 		},
@@ -202,7 +210,7 @@ var replayOps = []replayOp{
 	{
 		id: "cancelBid", method: "DELETE", path: "/bids/{code}", kind: "write", key: "",
 		call: func(ctx context.Context, c *cru.Client, in *replayInput) (any, error) {
-			p := &cru.BidsCancelParams{}
+			p := &bids.CancelParams{}
 			in.decodeBody(p)
 			return c.Bids.Cancel(ctx, in.path("code"), p, in.opts...)
 		},
@@ -210,7 +218,7 @@ var replayOps = []replayOp{
 	{
 		id: "renewBid", method: "POST", path: "/bids/{code}/renew", kind: "write", key: "",
 		call: func(ctx context.Context, c *cru.Client, in *replayInput) (any, error) {
-			p := &cru.BidsRenewParams{}
+			p := &bids.RenewParams{}
 			in.decodeBody(p)
 			return c.Bids.Renew(ctx, in.path("code"), p, in.opts...)
 		},
@@ -218,7 +226,7 @@ var replayOps = []replayOp{
 	{
 		id: "listOffers", method: "GET", path: "/offers", kind: "page", key: "offers",
 		call: func(ctx context.Context, c *cru.Client, in *replayInput) (any, error) {
-			p := &cru.OffersListParams{}
+			p := &offers.ListParams{}
 			p.LWIN = in.list("lwin")
 			p.WineName = in.str("wine_name")
 			p.CurrentLocationCode = in.list("current_location_code")
@@ -235,7 +243,7 @@ var replayOps = []replayOp{
 	{
 		id: "createOffer", method: "POST", path: "/offers", kind: "write", key: "",
 		call: func(ctx context.Context, c *cru.Client, in *replayInput) (any, error) {
-			p := &cru.OffersCreateParams{}
+			p := &offers.CreateParams{}
 			in.decodeBody(p)
 			return c.Offers.Create(ctx, p, in.opts...)
 		},
@@ -249,7 +257,7 @@ var replayOps = []replayOp{
 	{
 		id: "updateOffer", method: "PATCH", path: "/offers/{code}", kind: "write", key: "",
 		call: func(ctx context.Context, c *cru.Client, in *replayInput) (any, error) {
-			p := &cru.OffersUpdateParams{}
+			p := &offers.UpdateParams{}
 			in.decodeBody(p)
 			return c.Offers.Update(ctx, in.path("code"), p, in.opts...)
 		},
@@ -257,7 +265,7 @@ var replayOps = []replayOp{
 	{
 		id: "removeOffer", method: "DELETE", path: "/offers/{code}", kind: "write", key: "",
 		call: func(ctx context.Context, c *cru.Client, in *replayInput) (any, error) {
-			p := &cru.OffersRemoveParams{}
+			p := &offers.RemoveParams{}
 			in.decodeBody(p)
 			return c.Offers.Remove(ctx, in.path("code"), p, in.opts...)
 		},
@@ -265,7 +273,7 @@ var replayOps = []replayOp{
 	{
 		id: "listPortfolio", method: "GET", path: "/portfolio", kind: "page", key: "wines",
 		call: func(ctx context.Context, c *cru.Client, in *replayInput) (any, error) {
-			p := &cru.PortfolioListParams{}
+			p := &portfolio.ListParams{}
 			p.LWIN = in.list("lwin")
 			p.WineName = in.str("wine_name")
 			p.CurrentLocationCode = in.list("current_location_code")
@@ -283,7 +291,7 @@ var replayOps = []replayOp{
 	{
 		id: "listPurchases", method: "GET", path: "/trades/purchases", kind: "page", key: "purchases",
 		call: func(ctx context.Context, c *cru.Client, in *replayInput) (any, error) {
-			p := &cru.TradesListPurchasesParams{}
+			p := &trades.ListPurchasesParams{}
 			p.LWIN = in.list("lwin")
 			p.Status = in.list("status")
 			p.Sort = in.str("sort")
@@ -296,7 +304,7 @@ var replayOps = []replayOp{
 	{
 		id: "listSales", method: "GET", path: "/trades/sales", kind: "page", key: "sales",
 		call: func(ctx context.Context, c *cru.Client, in *replayInput) (any, error) {
-			p := &cru.TradesListSalesParams{}
+			p := &trades.ListSalesParams{}
 			p.LWIN = in.list("lwin")
 			p.Status = in.list("status")
 			p.DeliverableWarehouseCode = in.list("deliverable_warehouse_code")
@@ -310,7 +318,7 @@ var replayOps = []replayOp{
 	{
 		id: "buyMarketOffer", method: "POST", path: "/market/offers/{code}/buy", kind: "write", key: "",
 		call: func(ctx context.Context, c *cru.Client, in *replayInput) (any, error) {
-			p := &cru.MarketBuyOfferParams{}
+			p := &market.BuyOfferParams{}
 			in.decodeBody(p)
 			return c.Market.BuyOffer(ctx, in.path("code"), p, in.opts...)
 		},
@@ -318,7 +326,7 @@ var replayOps = []replayOp{
 	{
 		id: "sellToMarketBid", method: "POST", path: "/market/bids/{code}/sell", kind: "write", key: "",
 		call: func(ctx context.Context, c *cru.Client, in *replayInput) (any, error) {
-			p := &cru.MarketSellToBidParams{}
+			p := &market.SellToBidParams{}
 			in.decodeBody(p)
 			return c.Market.SellToBid(ctx, in.path("code"), p, in.opts...)
 		},
@@ -332,7 +340,7 @@ var replayOps = []replayOp{
 	{
 		id: "addInbondAddress", method: "POST", path: "/addresses/inbond", kind: "write", key: "",
 		call: func(ctx context.Context, c *cru.Client, in *replayInput) (any, error) {
-			p := &cru.InbondAddressesAddParams{}
+			p := &addresses.InbondAddParams{}
 			in.decodeBody(p)
 			return c.InbondAddresses.Add(ctx, p, in.opts...)
 		},
@@ -340,7 +348,7 @@ var replayOps = []replayOp{
 	{
 		id: "removeInbondAddress", method: "DELETE", path: "/addresses/inbond/{id}", kind: "write", key: "",
 		call: func(ctx context.Context, c *cru.Client, in *replayInput) (any, error) {
-			p := &cru.InbondAddressesRemoveParams{}
+			p := &addresses.InbondRemoveParams{}
 			in.decodeBody(p)
 			return c.InbondAddresses.Remove(ctx, in.pathInt("id"), p, in.opts...)
 		},

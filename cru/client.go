@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/cruworldwine/cru-api-go/internal/apijson"
+	"github.com/cruworldwine/cru-api-go/internal/caller"
 	"github.com/cruworldwine/cru-api-go/internal/transport"
 	sdkversion "github.com/cruworldwine/cru-api-go/internal/version"
 )
@@ -26,11 +27,12 @@ const (
 // Client calls the Cru Trading API. Create one with NewClient; it is safe for concurrent use.
 //
 // The endpoints are grouped by resource in the embedded Resources: client.Bids,
-// client.Offers and so on.
+// client.Offers and so on, each a service from the resource's package.
 type Client struct {
 	Resources
 
-	tr *transport.Client
+	tr     *transport.Client
+	caller *caller.Caller
 }
 
 // Token is what the OAuth token endpoint answered when the client refreshed its access token.
@@ -197,8 +199,8 @@ func NewClient(opts ...Option) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	c := &Client{tr: tr}
-	c.Resources = newResources(c)
+	c := &Client{tr: tr, caller: caller.New(tr)}
+	c.Resources = newResources(c.caller)
 	return c, nil
 }
 
@@ -268,7 +270,7 @@ func (c *Client) Do(ctx context.Context, method, path string, query url.Values, 
 	if !strings.HasPrefix(path, "/") {
 		path = "/" + path
 	}
-	resp, err := c.call(ctx, endpoint{method: strings.ToUpper(method), path: path, query: query, body: body, opts: opts})
+	resp, err := caller.Call(ctx, c.caller, caller.Endpoint{Method: strings.ToUpper(method), Path: path, Query: query, Body: body, Opts: opts})
 	if err != nil {
 		return nil, err
 	}

@@ -4,12 +4,26 @@
 
 ```
 cru-api-go/
-├── cru/                 package cru, the only package users import
+├── cru/                 package cru, the front door: Client, its options, Ping, Do
+│   ├── core/            what the resources share: Page, Write, errors, request options, envelope models
+│   ├── bids/            one package per resource: its service, parameters, models and known values
+│   ├── offers/
+│   ├── market/
+│   ├── portfolio/
+│   ├── trades/
+│   ├── wines/
+│   ├── warehouses/      the Cru warehouses (Service) and the inbond ones (InbondService)
+│   ├── addresses/       your inbond addresses (InbondService)
+│   ├── confirmations/   confirming a staged write, and the action's typed result
+│   └── photos/
 ├── internal/
+│   ├── caller/          how a generated method calls: Endpoint, GetOne, GetPage, DoWrite, ...
+│   ├── corelink/        how the internal packages reach what core keeps unexported
 │   ├── transport/       the HTTP pipeline
 │   ├── apijson/         tolerant JSON decoding and the envelope
 │   ├── apiquery/        query string encoding
-│   └── version/         Version and the User-Agent
+│   ├── version/         Version and the User-Agent
+│   └── testkit/         what the unit tests share; only tests import it
 ├── test/integration/    black-box tests through the public API
 ├── examples/            programs to run: portfolio, market, place-bid
 ├── api/openapi.yaml     the copy of the spec the code was generated from
@@ -17,32 +31,64 @@ cru-api-go/
 └── hack/                scripts the Makefile runs
 ```
 
-The dependencies go one way: `cru` imports the internal packages, `internal/transport` imports
-`internal/apijson`, and no internal package imports `cru`. Everything is the standard library.
+A resource's package is the first segment of its paths: `/warehouses` and `/warehouses/inbond`
+share package `warehouses`, and `/addresses/inbond` is package `addresses`. Names do not repeat
+their package: a leading word naming it is dropped, so `MarketBid` is `market.Bid`,
+`BidsListParams` is `bids.ListParams` and `BidStatusLive` is `bids.StatusLive`, unless nothing,
+or only `Error`, would be left (`warehouses.Warehouse`, `confirmations.ConfirmationError`). A
+service is named by the words of its resource that do not name the package: `bids.Service`,
+`warehouses.InbondService`.
+
+The imports go one way, so there is no cycle:
+
+- `cru` imports every resource package, `core` and the internal packages, and nothing imports it;
+- a resource package imports `core` and the internal packages, and another resource package only
+  where one's models hold the other's: `offers` imports `portfolio` (an offer is a
+  `portfolio.Wine`), `wines` imports `market` (a wine's `market.Bid`, `market.Offer` and
+  `market.LastTrade`), and `confirmations` imports the packages whose results it decodes;
+- `core` imports only the internal packages below it;
+- `internal/caller` imports `core`, and `core` sets `internal/corelink`, which imports nothing of
+  the SDK's.
 
 | Package | Holds | Knows of the API's models? |
 |---|---|---|
-| `cru` | `Client` and its options, the services and their methods, parameter structs, models, known-value constants, `APIError` and its kinds, `Page`, `Write`, `ResponseMeta`, `Value` and `Field`; and the glue from a generated method to the transport | yes |
+| `cru` | `Client` and its options, `Ping`, `Do` and `Response`, `Version`, `String`, `Int`, `Float`, `Bool` and `Value`; and core's errors, request options, `ResponseMeta`, `Model`, `Field` and shared known values again, as the same types and values | `Ping` only |
+| `cru/<resource>` | the resource's service and methods, their parameter structs, the models it owns and its known values (`bids.StatusLive`) | yes |
+| `cru/core` | `Page`, `Write`, `APIError` and its kinds, `ConnectionError`, `RequestOption` and the per-call options, `ResponseMeta`, `Model` and `Field`, the envelope's models, `StagedConfirmation`, and the known values more than one resource uses | the envelope's |
+| `internal/caller` | `Endpoint`, the generic calls a generated method makes (`GetOne`, `GetList`, `GetPage`, `DoWrite`, `WriteOf`, `DoEmpty`, `DoBinary`), `ExpandPath`, and the registry that lets `cru` make each resource's service | no |
+| `internal/corelink` | the two functions `core` lends the internal packages: turning the transport's errors into core's, and giving a `Page` its next page | no |
 | `internal/transport` | building a request (URL, query, JSON body, headers, credentials), the per-call options, retries and back-off, the partner write's reference, the OAuth refresh, the redirect guard, logging | no: it answers with status, headers and body |
 | `internal/apijson` | `Split` and the `Decode` family the generated models decode with, `Lookup` for `Field`, and reading the envelope (data, lists, request id, first error) | no |
 | `internal/apiquery` | writing parameters into the query string | no |
 | `internal/version` | `Version` and the User-Agent | no |
+| `internal/testkit` | the test server, invented fixtures, `EveryOperation` and `Decodes`, which every package's generated tests run | no |
 
-The internal packages are free to change between versions; `cru` is the API, and changes to it
-follow [the versioning policy](compatibility.md#versioning).
+The internal packages are free to change between versions; `cru`, `cru/core` and the resource
+packages are the API, and changes to them follow [the versioning policy](compatibility.md#versioning).
+
+Three small seams keep the internal plumbing out of the exported API:
+
+- **A Client hands each service its `*caller.Caller`** without the resource packages exporting a
+  constructor: each registers one (`caller.Register`) when it is initialised, and the generated
+  `cru/services.go` makes the services with `caller.NewService`.
+- **A `RequestOption` is opaque**: a function over an unexported alias of the transport's options,
+  which `internal/caller` applies.
+- **`core` keeps its errors' and pages' insides unexported**; `internal/corelink` holds the two
+  functions `core` sets when it is initialised, so `internal/caller` can build a `*core.APIError`
+  or `*core.ConnectionError` and give a `*core.Page` its next page.
 
 ## The life of a request
 
 Take `client.Bids.Get(ctx, code, cru.WithRequestTimeout(5*time.Second))`:
 
-1. **The generated method** (`cru/bids.go`) escapes `code` into the path, `/bids/{code}`, and
-   describes the call as an `endpoint`: method, path, query (from the params struct, through
-   `internal/apiquery`), body, the key the result is under in `data` (`bid`), and the request
-   options. It hands it to `getOne[OwnBid]`, the glue in `cru/call.go`.
-2. **The request options** are applied to a `transport.Options`: each `cru.RequestOption` is a
-   function that sets a header, a timeout, retries, an extra query parameter or body field, or
-   an observer for `WithResponseInto`. One that cannot apply records an error, and nothing is
-   sent.
+1. **The generated method** (`cru/bids/bids.go`) escapes `code` into the path, `/bids/{code}`,
+   with `caller.ExpandPath`, and describes the call as a `caller.Endpoint`: method, path, query
+   (from the params struct, through `internal/apiquery`), body, the key the result is under in
+   `data` (`bid`), and the request options. It hands it to `caller.GetOne[bids.OwnBid]`.
+2. **The request options** are applied to a `transport.Options` by `internal/caller`: each
+   `RequestOption` is a function that sets a header, a timeout, retries, an extra query parameter
+   or body field, or an observer for `WithResponseInto`. One that cannot apply records an error,
+   and nothing is sent.
 3. **The transport** (`internal/transport`) encodes the request once: the URL and query, the
    JSON body with any extra fields and, for a partner's write, a `reference` when it has none,
    so every attempt sends the same bytes. It then sends attempts:
@@ -57,11 +103,14 @@ Take `client.Bids.Get(ctx, code, cru.WithRequestTimeout(5*time.Second))`:
 
    It answers with the raw response, or a `*transport.StatusError` (an answer of 400 or more)
    or a `*transport.ConnectionError`.
-4. **The glue** (`cru/call.go`) turns those into `*cru.APIError` (its fields read from the
-   error envelope) or `*cru.ConnectionError`, then reads the envelope with `internal/apijson`
-   and decodes `data.bid` into an `OwnBid`.
-5. **The model** (`cru/bids.go`) decodes field by field, with `apijson.Split` and the `Decode`
-   family: a field that does not fit is left unset, and the JSON is kept for `Raw` and `Field`.
+4. **The caller** (`internal/caller`) has `core` turn those into `*core.APIError` (its fields read
+   from the error envelope) or `*core.ConnectionError`, then reads the envelope with
+   `internal/apijson` and decodes `data.bid` into a `bids.OwnBid`. For a list that pages it builds
+   a `*core.Page`, whose `Next` sends the same endpoint with the next offset; for a write, a
+   `*core.Write`.
+5. **The model** (`cru/bids/bids.go`) decodes field by field, with `apijson.Split` and the
+   `Decode` family: a field that does not fit is left unset, and the JSON is kept for `Raw` and
+   `Field`.
 
 ## How code generation works
 
@@ -69,11 +118,15 @@ The API's surface is generated from its OpenAPI spec, by the generator in Cru's 
 (`docs/api/tools/sdkgen`, with `gen_go.py` for Go). `make generate`, with `CRU_API_REPO` naming
 that checkout, writes:
 
-- into `cru/`: a file per resource (its service, methods, parameter structs and the models it
-  returns, such as `bids.go`), `services.go` (the `Resources` wiring and the confirmed actions'
-  result types), `values.go` (the known-value constants), `envelope.go` (`Meta`, `Pagination`,
-  `ErrorEntry`) and `sample_gen_test.go` (an invented call and answer for every operation, which
-  `TestEveryOperation` checks);
+- into each resource package, `cru/<resource>/`: `doc.go` (the package comment), a file per
+  resource with its service, methods, parameter structs and the models it owns (such as
+  `bids.go`, or `warehouses.go` and `inbond.go`), `values.go` (its known values) and
+  `sample_gen_test.go` (an invented call and answer for every operation, which
+  `TestEveryOperation` checks, and `FuzzDecodeModels` over its models);
+- into `cru/core/`: `models.go` (the envelope's models and `StagedConfirmation`), `values.go`
+  (the known values more than one resource uses) and `models_gen_test.go`;
+- into `cru/`: `ping.go`, `services.go` (`Resources`, the field per service a `Client` embeds),
+  `values.go` (core's known values named again) and `sample_gen_test.go`;
 - `test/integration/replay_gen_test.go`, which calls each operation from a captured request;
 - `api/openapi.yaml`, the copy of the spec it generated from, and the method table in the README.
 
@@ -86,12 +139,15 @@ generated file edited by hand.
 | To change | Edit |
 |---|---|
 | an endpoint, parameter, model, field, known value or doc comment | the spec, in Cru's API repository, then `make generate` |
-| how every method or model is generated | `gen_go.py`, in Cru's API repository, then `make generate` |
-| client or request options, errors, paging, writes | `cru/` (the hand-written files: `client.go`, `options.go`, `call.go`, `errors.go`, `page.go`, `write.go`, `model.go`, `cru.go`) |
+| how every method or model is generated, or which package a resource is in | `gen_go.py`, in Cru's API repository, then `make generate` |
+| client options, `Do`, the names `cru` gives core's types again | `cru/` (the hand-written files: `client.go`, `cru.go`, `doc.go`, `errors.go`, `options.go`, `model.go`) |
+| errors, request options, paging, writes | `cru/core/` (the hand-written files: `errors.go`, `options.go`, `page.go`, `write.go`, `model.go`, `link.go`, `doc.go`) |
+| a confirmed action's result | `cru/confirmations/action.go` |
+| how a generated method's call is sent and decoded | `internal/caller` |
 | retries, timeouts, the refresh, redirects, headers, logging | `internal/transport` |
 | how a field is decoded | `internal/apijson` |
 | how a query parameter is written | `internal/apiquery` |
 | the version or the User-Agent | `internal/version` |
 
-A file under `cru/` that starts with `Code generated` is never edited by hand. Each package has
-its own tests, and `make cover` holds each to 85% or more by its own tests alone.
+A file that starts with `Code generated` is never edited by hand. Each package has its own tests,
+in its own folder, and `make cover` holds each to 85% or more by its own tests alone.

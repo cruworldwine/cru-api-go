@@ -18,6 +18,8 @@ import (
 	"testing"
 
 	"github.com/cruworldwine/cru-api-go/cru"
+	"github.com/cruworldwine/cru-api-go/cru/confirmations"
+	"github.com/cruworldwine/cru-api-go/cru/core"
 )
 
 // TestReplayCaptures serves real API answers, captured into $CRU_CAPTURES/captures/*.json, back
@@ -357,7 +359,7 @@ func check(op *replayOp, cp *capture, res any, err error) []string {
 	case "write", "confirm":
 		w := reflect.ValueOf(res).Elem()
 		if cp.Status == http.StatusAccepted {
-			conf, _ := w.FieldByName("Confirmation").Interface().(*cru.StagedConfirmation)
+			conf, _ := w.FieldByName("Confirmation").Interface().(*core.StagedConfirmation)
 			if !w.FieldByName("Staged").Bool() || conf == nil || conf.Code == "" || conf.Preview.Summary == "" {
 				return []string{"not staged with a confirmation"}
 			}
@@ -367,8 +369,8 @@ func check(op *replayOp, cp *capture, res any, err error) []string {
 		if result.IsNil() {
 			return []string{"no result"}
 		}
-		if ar, ok := result.Interface().(*cru.ActionResult); ok {
-			if _, unknown := ar.Value.(*cru.InstructionResult); unknown {
+		if ar, ok := result.Interface().(*confirmations.ActionResult); ok {
+			if _, unknown := ar.Value.(*confirmations.InstructionResult); unknown {
 				return []string{"the action " + ar.Action + " was not decoded into its result"}
 			}
 			return lossless(op.id, ar.Value, ar.Raw())
