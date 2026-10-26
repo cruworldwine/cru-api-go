@@ -12,7 +12,8 @@ credential and share it.
 | `WithAccessToken(token)` | `CRU_ACCESS_TOKEN` | a connected app's access token |
 | `WithOAuthRefresh(refresh, id, secret, onRefresh)` | none | refresh an expired access token |
 | `WithMarket(market)` | `CRU_MARKET`, else `uk` | the market's host |
-| `WithBaseURL(url)` | `CRU_BASE_URL` | another base URL, ending in `/api/v1` |
+| `WithEnvironment(env)` | `CRU_ENVIRONMENT`, else `live` | the live API or the sandbox |
+| `WithBaseURL(url)` | `CRU_BASE_URL` | another base URL, ending in `/api/v1`; wins over the market and environment |
 | `WithHTTPClient(hc)` | a client on `http.DefaultTransport` | the HTTP client requests go through |
 | `WithTimeout(d)` | 30s | limit on each attempt; 0 is none |
 | `WithMaxRetries(n)` | 2 | retries of a read or a partner write; 0 is none |
@@ -20,6 +21,43 @@ credential and share it.
 | `WithAppInfo(name, version, url)` | none | your application, in the User-Agent |
 
 [Authentication](authentication.md) covers the credentials.
+
+## Markets and the sandbox
+
+The client calls one market's host in one environment:
+
+| Environment | Base URL | For |
+|---|---|---|
+| `cru.EnvironmentLive`, the default | `https://{market}.cruworldwine.com/api/v1` | the real API |
+| `cru.EnvironmentSandbox` | `https://{market}.crusandbox.com/api/v1` | for building and testing; no real money or wine changes hands |
+
+The market is `uk` (the default), `us`, `hk`, `sg`, `eu`, `ae` or `cn`, the same in both. The
+sandbox takes credentials issued for it, and a credential works on its own market only.
+`WithEnvironment` and `CRU_ENVIRONMENT` take `live` or `sandbox` in any case; `NewClient` refuses
+anything else, even with a base URL. A base URL wins over both the market and the environment.
+
+```go
+client, err := cru.NewClient(cru.WithClientKey(key, secret),
+	cru.WithEnvironment(cru.EnvironmentSandbox), cru.WithMarket("sg"))
+// client.BaseURL() is https://sg.crusandbox.com/api/v1
+```
+
+The SDK carries the table of markets, generated from the spec, so a program knows a market's
+currency without a call:
+
+```go
+for _, m := range cru.Markets() { // uk first, in the spec's order
+	fmt.Println(m.Code, m.Name, m.Currency, m.Symbol, m.URL(cru.EnvironmentSandbox))
+}
+hk, ok := cru.LookupMarket("HK") // in any case; ok is false for a code the table lacks
+m, ok := client.MarketInfo()     // the client's market
+```
+
+`client.MarketInfo()` is the market the client was made for. With a base URL, it is the market
+whose host that is, in either environment (`hk` for `https://hk.crusandbox.com/api/v1`); for
+another host, the market `WithMarket` or `CRU_MARKET` gave; and none when neither names one. A
+market code that is valid but not in the table still picks its host, so a new market needs no
+new SDK release, but `MarketInfo` reports none for it.
 
 ## Request options
 

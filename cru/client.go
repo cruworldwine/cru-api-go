@@ -31,8 +31,9 @@ const (
 type Client struct {
 	Resources
 
-	tr     *transport.Client
-	caller *caller.Caller
+	tr         *transport.Client
+	caller     *caller.Caller
+	marketInfo *MarketInfo
 }
 
 // Token is what the OAuth token endpoint answered when the client refreshed its access token.
@@ -60,6 +61,7 @@ type config struct {
 	oauthClientSecret       string
 	onRefresh               func(Token)
 	market                  string
+	environment             string
 	baseURL                 string
 	httpClient              *http.Client
 	maxRetries              *int
@@ -93,14 +95,17 @@ func WithOAuthRefresh(refreshToken, clientID, clientSecret string, onRefresh fun
 	}
 }
 
-// WithMarket picks the market's host, https://{market}.cruworldwine.com/api/v1. It defaults
+// WithMarket picks the market's host: https://{market}.cruworldwine.com/api/v1 on the live
+// API, or https://{market}.crusandbox.com/api/v1 on the sandbox (WithEnvironment). It defaults
 // to uk. A credential works on its own market only. A market is a code such as uk or hk, in
-// any case; NewClient refuses anything else.
+// any case; NewClient refuses anything else. With a base URL, it only names the market
+// Client.MarketInfo reports when the base URL's host is not a market's.
 func WithMarket(market string) Option {
 	return func(c *config) { c.market = market }
 }
 
-// WithBaseURL sets the API's base URL, ending in /api/v1, in place of the market's.
+// WithBaseURL sets the API's base URL, ending in /api/v1, in place of the market's host in
+// the environment. It wins over WithMarket and WithEnvironment.
 func WithBaseURL(baseURL string) Option {
 	return func(c *config) { c.baseURL = baseURL }
 }
@@ -144,10 +149,10 @@ func WithTimeout(d time.Duration) Option {
 
 // NewClient returns a client configured by opts.
 //
-// What opts leave unset is read from the environment: CRU_CLIENT_KEY and CRU_CLIENT_SECRET
-// (unless an access token was given), CRU_ACCESS_TOKEN (unless a key pair was given),
-// CRU_MARKET and CRU_BASE_URL. It is an error to end up with neither a key pair nor an access
-// token.
+// What opts leave unset is read from environment variables: CRU_CLIENT_KEY and
+// CRU_CLIENT_SECRET (unless an access token was given), CRU_ACCESS_TOKEN (unless a key pair was
+// given), CRU_MARKET, CRU_ENVIRONMENT and CRU_BASE_URL. It is an error to end up with neither a
+// key pair nor an access token, or with an environment other than live or sandbox.
 func NewClient(opts ...Option) (*Client, error) {
 	var cfg config
 	for _, opt := range opts {
@@ -168,16 +173,22 @@ func NewClient(opts ...Option) (*Client, error) {
 		return nil, errors.New("cru: give a client key and secret (WithClientKey or CRU_CLIENT_KEY and CRU_CLIENT_SECRET), or an access token (WithAccessToken or CRU_ACCESS_TOKEN)")
 	}
 
+	env, err := environment(orEnv(cfg.environment, "CRU_ENVIRONMENT"))
+	if err != nil {
+		return nil, err
+	}
+	market := strings.ToLower(orEnv(cfg.market, "CRU_MARKET"))
 	base := strings.TrimRight(orEnv(cfg.baseURL, "CRU_BASE_URL"), "/")
 	if base == "" {
-		market := strings.ToLower(orEnv(cfg.market, "CRU_MARKET"))
 		if market == "" {
 			market = defaultMarket
 		}
 		if !isMarketCode(market) {
 			return nil, fmt.Errorf("cru: %q is not a market code such as uk", market)
 		}
-		base = "https://" + market + ".cruworldwine.com/api/v1"
+		base = strings.ReplaceAll(environmentURLs[env], "{market}", market)
+	} else {
+		market = marketOfBaseURL(base, market)
 	}
 	tc := transport.Config{
 		BaseURL: base, Partner: partner, ClientKey: cfg.clientKey, ClientSecret: cfg.clientSecret,
@@ -200,6 +211,9 @@ func NewClient(opts ...Option) (*Client, error) {
 		return nil, err
 	}
 	c := &Client{tr: tr, caller: caller.New(tr)}
+	if m, ok := LookupMarket(market); ok {
+		c.marketInfo = &m
+	}
 	c.Resources = newResources(c.caller)
 	return c, nil
 }
@@ -211,7 +225,8 @@ func orEnv(v, name string) string {
 	return os.Getenv(name)
 }
 
-// isMarketCode accepts a DNS label, so a market can only ever pick a host under cruworldwine.com.
+// isMarketCode accepts a DNS label, so a market can only ever pick a host under an environment's
+// domain, cruworldwine.com or crusandbox.com.
 func isMarketCode(s string) bool {
 	if len(s) == 0 || len(s) > 63 || s[0] == '-' || s[len(s)-1] == '-' {
 		return false
