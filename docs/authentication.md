@@ -2,7 +2,10 @@
 
 The Cru Trading API answers on one host per market, `https://{market}.cruworldwine.com/api/v1`,
 where market is `uk` (the default), `us`, `hk`, `sg`, `eu`, `ae` or `cn`. A credential works on its
-own market only. There are two kinds of credential, and they behave differently on writes.
+own market only. The sandbox, `https://{market}.crusandbox.com/api/v1`, takes credentials issued
+for it (`cru_test_...`); pick it with `WithEnvironment(cru.EnvironmentSandbox)` (see
+[configuration](configuration.md#markets-and-the-sandbox)). There are two kinds of credential,
+and they behave differently on writes.
 
 ```go
 import "github.com/cruworldwine/cru-api-go/cru"
@@ -59,10 +62,12 @@ set:
 | `CRU_CLIENT_KEY`, `CRU_CLIENT_SECRET` | no access token was given |
 | `CRU_ACCESS_TOKEN` | no key pair was given |
 | `CRU_MARKET` | no market was given |
+| `CRU_ENVIRONMENT` | no environment was given |
 | `CRU_BASE_URL` | no base URL was given |
 
-A key pair wins over an access token. `NewClient` fails when it ends up with neither, or with a
-market that is not a market code: a market can only ever pick a host under cruworldwine.com.
+A key pair wins over an access token. `NewClient` fails when it ends up with neither, with an
+environment other than `live` or `sandbox`, or with a market that is not a market code: a market
+can only ever pick a host under cruworldwine.com or crusandbox.com.
 
 ## Check the connection
 

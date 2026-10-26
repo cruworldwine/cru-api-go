@@ -6,7 +6,7 @@
 //     skipped otherwise. Captures hold customer data: they stay out of the repository.
 //   - TestLive calls the real API, read-only: Ping, Warehouses.List and Market.List. It runs only
 //     when CRU_LIVE=1, with credentials in the environment (CRU_CLIENT_KEY and CRU_CLIENT_SECRET,
-//     or CRU_ACCESS_TOKEN; CRU_MARKET or CRU_BASE_URL to pick the host).
+//     or CRU_ACCESS_TOKEN; CRU_MARKET, CRU_ENVIRONMENT or CRU_BASE_URL to pick the host).
 //
 // Run them with make integration.
 package integration

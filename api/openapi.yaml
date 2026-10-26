@@ -17,7 +17,8 @@ info:
     url: https://developers.cruworldwine.com
 servers:
 - url: https://{market}.cruworldwine.com/api/v1
-  description: One host per market. A credential works on its own market only (AUTH_STORE_NOT_ALLOWED elsewhere).
+  description: Live. One host per market. A credential works on its own market only (AUTH_STORE_NOT_ALLOWED elsewhere).
+  x-cru-environment: live
   variables:
     market:
       default: uk
@@ -29,6 +30,51 @@ servers:
       - eu
       - ae
       - cn
+- url: https://{market}.crusandbox.com/api/v1
+  description: The sandbox, for building and testing, where no real money or wine changes hands. The same markets as live, with credentials issued for the sandbox. GET /ping says environment test there.
+  x-cru-environment: sandbox
+  variables:
+    market:
+      default: uk
+      enum:
+      - uk
+      - us
+      - hk
+      - sg
+      - eu
+      - ae
+      - cn
+# Each market's name, and the currency every amount on its host is in, with the symbol Cru's
+# website shows for it. The SDKs carry this table, so a client knows its currency without a call.
+x-cru-markets:
+- code: uk
+  name: United Kingdom
+  currency: GBP
+  symbol: £
+- code: us
+  name: United States
+  currency: USD
+  symbol: $
+- code: hk
+  name: Hong Kong
+  currency: HKD
+  symbol: HK$
+- code: sg
+  name: Singapore
+  currency: SGD
+  symbol: SG$
+- code: eu
+  name: Europe
+  currency: EUR
+  symbol: €
+- code: ae
+  name: United Arab Emirates
+  currency: AED
+  symbol: د.إ
+- code: cn
+  name: China
+  currency: CNY
+  symbol: ¥
 security:
 - ClientKey: []
   ClientSecret: []

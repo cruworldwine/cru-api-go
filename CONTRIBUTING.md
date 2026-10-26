@@ -92,7 +92,7 @@ repository:
 - each resource package, `cru/<resource>/`, but for a hand-written `example_test.go` and tests
   of its own, and `cru/confirmations/action.go`;
 - in `cru/core/`: `models.go`, `values.go` and `models_gen_test.go`;
-- in `cru/`: `ping.go`, `services.go`, `values.go` and `sample_gen_test.go`;
+- in `cru/`: `ping.go`, `services.go`, `values.go`, `markets_gen.go` and `sample_gen_test.go`;
 - `test/integration/replay_gen_test.go`;
 - `api/openapi.yaml`, and the method table in the README, between the `sdkgen:methods` markers.
 
@@ -103,7 +103,7 @@ the generator, by Cru, and arrives here regenerated with `make generate`. Open a
 describing what you need.
 
 The hand-written code takes ordinary pull requests: the hand-written files in `cru/` (`client.go`,
-`cru.go`, `doc.go`, `errors.go`, `options.go`, `model.go`) and in `cru/core/` (`doc.go`,
+`cru.go`, `doc.go`, `errors.go`, `markets.go`, `options.go`, `model.go`) and in `cru/core/` (`doc.go`,
 `errors.go`, `options.go`, `page.go`, `write.go`, `model.go`, `link.go`),
 `cru/confirmations/action.go`, the internal packages, the tests other than the generated ones,
 the examples, the docs and the tooling.

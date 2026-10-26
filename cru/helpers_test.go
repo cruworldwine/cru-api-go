@@ -13,7 +13,7 @@ import (
 // Every fixture in these tests is invented: fake LWINs, names, codes and ids.
 
 func TestMain(m *testing.M) {
-	for _, name := range []string{"CRU_CLIENT_KEY", "CRU_CLIENT_SECRET", "CRU_ACCESS_TOKEN", "CRU_MARKET", "CRU_BASE_URL"} {
+	for _, name := range []string{"CRU_CLIENT_KEY", "CRU_CLIENT_SECRET", "CRU_ACCESS_TOKEN", "CRU_MARKET", "CRU_ENVIRONMENT", "CRU_BASE_URL"} {
 		if err := os.Unsetenv(name); err != nil {
 			panic(err)
 		}
