@@ -26,6 +26,35 @@ func ExampleNewClient() {
 	fmt.Println(ping.Client.Market, ping.Client.Currency)
 }
 
+func ExampleWithEnvironment() {
+	// The sandbox, with a credential issued for it: no real money or wine changes hands there.
+	client, err := cru.NewClient(cru.WithClientKey("cru_test_...", "..."),
+		cru.WithEnvironment(cru.EnvironmentSandbox), cru.WithMarket("hk"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(client.BaseURL())
+	// Output: https://hk.crusandbox.com/api/v1
+}
+
+func ExampleClient_MarketInfo() {
+	client, err := cru.NewClient(cru.WithClientKey("cru_live_...", "..."), cru.WithMarket("hk"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	// The currency every amount on the client's market is in, known without a call.
+	if m, ok := client.MarketInfo(); ok {
+		fmt.Println(m.Name, m.Currency, m.Symbol)
+	}
+	// Output: Hong Kong HKD HK$
+}
+
+func ExampleLookupMarket() {
+	m, ok := cru.LookupMarket("SG")
+	fmt.Println(ok, m.Name, m.Currency, m.URL(cru.EnvironmentSandbox))
+	// Output: true Singapore SGD https://sg.crusandbox.com/api/v1
+}
+
 func ExampleWithLogger() {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	client, err := cru.NewClient(

@@ -56,7 +56,25 @@ client, err := cru.NewClient(
 ```
 
 Unset options fall back to `CRU_CLIENT_KEY`, `CRU_CLIENT_SECRET`, `CRU_ACCESS_TOKEN`,
-`CRU_MARKET` and `CRU_BASE_URL`, so `cru.NewClient()` alone works when they are set.
+`CRU_MARKET`, `CRU_ENVIRONMENT` and `CRU_BASE_URL`, so `cru.NewClient()` alone works when they
+are set.
+
+## Sandbox
+
+The sandbox, at `https://{market}.crusandbox.com/api/v1`, is for building and testing: no real
+money or wine changes hands there. It has the same markets as the live API and takes credentials
+issued for the sandbox:
+
+```go
+client, err := cru.NewClient(
+	cru.WithClientKey("cru_test_...", secret),
+	cru.WithEnvironment(cru.EnvironmentSandbox), // or CRU_ENVIRONMENT=sandbox
+	cru.WithMarket("hk"),                        // https://hk.crusandbox.com/api/v1
+)
+```
+
+`cru.Markets()` and `cru.LookupMarket("hk")` give each market's name, currency and symbol, and
+`client.MarketInfo()` the client's own, without a call.
 
 ## Typed models
 
@@ -94,8 +112,8 @@ code reads `cru.APIError`, `cru.ErrNotFound` and `cru.CurrencyGBP`.
 
 - [Authentication](docs/authentication.md): partner credentials, connected apps and the OAuth
   refresh, the environment.
-- [Configuration](docs/configuration.md): client and request options, timeouts, retries, logging,
-  request ids, the User-Agent.
+- [Configuration](docs/configuration.md): client and request options, markets and the sandbox,
+  timeouts, retries, logging, request ids, the User-Agent.
 - [Pagination](docs/pagination.md): `Page`, `Page.All` and `Next`.
 - [Writes and confirmations](docs/writes-and-confirmations.md): results, references and
   idempotency, staged writes and confirming them.

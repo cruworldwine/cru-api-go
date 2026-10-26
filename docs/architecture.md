@@ -126,7 +126,9 @@ that checkout, writes:
 - into `cru/core/`: `models.go` (the envelope's models and `StagedConfirmation`), `values.go`
   (the known values more than one resource uses) and `models_gen_test.go`;
 - into `cru/`: `ping.go`, `services.go` (`Resources`, the field per service a `Client` embeds),
-  `values.go` (core's known values named again) and `sample_gen_test.go`;
+  `values.go` (core's known values named again), `markets_gen.go` (each environment's base URL
+  template, from the spec's `servers`, and the markets, from `x-cru-markets`, which the
+  hand-written `markets.go` serves) and `sample_gen_test.go`;
 - `test/integration/replay_gen_test.go`, which calls each operation from a captured request;
 - `api/openapi.yaml`, the copy of the spec it generated from, and the method table in the README.
 
@@ -140,7 +142,8 @@ generated file edited by hand.
 |---|---|
 | an endpoint, parameter, model, field, known value or doc comment | the spec, in Cru's API repository, then `make generate` |
 | how every method or model is generated, or which package a resource is in | `gen_go.py`, in Cru's API repository, then `make generate` |
-| client options, `Do`, the names `cru` gives core's types again | `cru/` (the hand-written files: `client.go`, `cru.go`, `doc.go`, `errors.go`, `options.go`, `model.go`) |
+| a market, or an environment's host | the spec's `x-cru-markets` or `servers`, then `make generate`; a new environment also needs `cru/markets.go` and `gen_go.py` |
+| client options, `Do`, environments and market lookups, the names `cru` gives core's types again | `cru/` (the hand-written files: `client.go`, `cru.go`, `doc.go`, `errors.go`, `markets.go`, `options.go`, `model.go`) |
 | errors, request options, paging, writes | `cru/core/` (the hand-written files: `errors.go`, `options.go`, `page.go`, `write.go`, `model.go`, `link.go`, `doc.go`) |
 | a confirmed action's result | `cru/confirmations/action.go` |
 | how a generated method's call is sent and decoded | `internal/caller` |
