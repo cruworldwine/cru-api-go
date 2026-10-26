@@ -7,9 +7,9 @@ release may change the API incompatibly, and says so here.
 
 ## [Unreleased]
 
-The next tag is **v0.1.1**: `Version` in `internal/version/version.go` is already `"0.1.1"`. It
-ships everything in this section, including the per-resource layout already on main since
-v0.1.0.
+## [0.2.0] - 2026-10-26
+
+It changes the API incompatibly (see **Changed (breaking)**), hence 0.2.0 rather than 0.1.1.
 
 ### Changed (breaking)
 
@@ -147,5 +147,6 @@ v0.1.0.
 - Models that never fail on fields or values added later, and keep their JSON for `Raw` and
   `Field`.
 
-[Unreleased]: https://github.com/cruworldwine/cru-api-go/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/cruworldwine/cru-api-go/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/cruworldwine/cru-api-go/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/cruworldwine/cru-api-go/releases/tag/v0.1.0

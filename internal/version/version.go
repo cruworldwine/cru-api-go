@@ -9,7 +9,7 @@ import (
 )
 
 // Version is the SDK's version, without the leading v of its tag.
-const Version = "0.1.1"
+const Version = "0.2.0"
 
 // UserAgent returns "cruworldwine-go/<Version> go/<Go version> (<GOOS>; <GOARCH>)", followed
 // by app when it is not empty.

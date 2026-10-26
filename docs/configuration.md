@@ -134,7 +134,7 @@ application after it, so Cru can tell its traffic apart:
 
 ```go
 client, err := cru.NewClient(cru.WithAppInfo("cellar-sync", "2.1.0", "https://example.com/cellar-sync"))
-// User-Agent: cruworldwine-go/0.1.1 go/1.24.2 (linux; amd64) cellar-sync/2.1.0 (https://example.com/cellar-sync)
+// User-Agent: cruworldwine-go/0.2.0 go/1.24.2 (linux; amd64) cellar-sync/2.1.0 (https://example.com/cellar-sync)
 ```
 
 ## Calling an endpoint this SDK does not know
