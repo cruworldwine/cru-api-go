@@ -70,6 +70,17 @@ v0.1.0.
 
 ### Added
 
+- The sandbox. `WithEnvironment(cru.EnvironmentSandbox)`, or `CRU_ENVIRONMENT=sandbox`, sends
+  the client to `https://{market}.crusandbox.com/api/v1`, where no real money or wine changes
+  hands, with credentials issued for the sandbox. `cru.EnvironmentLive`, the default, is
+  `https://{market}.cruworldwine.com/api/v1`. Both are read in any case, and `NewClient` refuses
+  any other value. A base URL still wins over the market and the environment.
+- The table of markets, generated from the spec. `cru.Markets()` lists them, uk first, and
+  `cru.LookupMarket(code)` finds one in any case; each is a `cru.MarketInfo` with its code, name,
+  currency (ISO 4217), symbol and base URL in each environment (`LiveURL`, `SandboxURL` and
+  `URL(env)`). `Client.MarketInfo()` returns the client's market: the one it was made for, or,
+  with a base URL, the market whose host that is, else the one `WithMarket` or `CRU_MARKET`
+  named. A valid market code the table lacks still picks its host.
 - Per-call options. Every method, and `Client.Do`, takes trailing `opts ...RequestOption`:
   - `WithRequestHeader(key, value)` sends a header on that call;
   - `WithRequestTimeout(d)` and `WithRequestMaxRetries(n)` override the client's per-attempt

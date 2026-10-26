@@ -33,8 +33,17 @@
 // client.Confirmations.Confirm is called with it once the customer agrees. WithOAuthRefresh lets
 // the client refresh an expired access token by itself.
 //
-// Unset options fall back to the environment: CRU_CLIENT_KEY, CRU_CLIENT_SECRET,
-// CRU_ACCESS_TOKEN, CRU_MARKET and CRU_BASE_URL.
+// Unset options fall back to environment variables: CRU_CLIENT_KEY, CRU_CLIENT_SECRET,
+// CRU_ACCESS_TOKEN, CRU_MARKET, CRU_ENVIRONMENT and CRU_BASE_URL.
+//
+// # Markets and the sandbox
+//
+// The API answers on one host per market, https://{market}.cruworldwine.com/api/v1, and a
+// credential works on its own market only. WithMarket picks the market, uk by default.
+// WithEnvironment(EnvironmentSandbox) calls the sandbox instead, at
+// https://{market}.crusandbox.com/api/v1, with credentials issued for it: no real money or wine
+// changes hands there. Markets and LookupMarket give each market's name and currency, and
+// Client.MarketInfo the client's own, without a call.
 //
 // # Calls
 //
