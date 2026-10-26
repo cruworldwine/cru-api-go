@@ -55,7 +55,8 @@ fi
 case "${ALLOW_BREAKING:-}" in
 1 | true) exit 0 ;;
 esac
-if [ -s "$tmp/incompatible.txt" ]; then
+# Version's value changes in every release, which breaks no caller: only the other lines count.
+if grep -v -E '^(Incompatible changes:|- \./cru\.Version: value changed from "[^"]*" to "[^"]*")$' "$tmp/incompatible.txt" | grep -q '[^[:space:]]'; then
 	echo "Incompatible changes to the exported API. If they are intended, label the pull request breaking-change and say in CHANGELOG.md what users must change." >&2
 	exit 1
 fi
