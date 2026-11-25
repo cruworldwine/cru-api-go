@@ -2,6 +2,13 @@
 
 package core
 
+// APIClientKind values are the known values of the fields that carry one. Others may appear, and
+// decode as they are.
+const (
+	APIClientKindPartner  = "partner"
+	APIClientKindCustomer = "customer"
+)
+
 // Action values are the known values of the fields that carry one. Others may appear, and decode as
 // they are.
 const (

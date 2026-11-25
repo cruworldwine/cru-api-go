@@ -11,6 +11,8 @@ info:
 
     A partner credential (CLIENT-KEY and CLIENT-SECRET headers) writes at once and must send a reference, its idempotency key: a retry with the same reference never acts twice. A connected app (OAuth 2.0 bearer token) has its writes staged: the write answers 202 with a confirmation, and nothing happens until POST /confirmations/{code}.
 
+    A webhook (scope webhooks:manage, on a client key and secret only) has Cru POST your server a signed WebhookEvent when you sell (sale.created) or an order of yours is paid (purchase.created), retried for 72 hours until it answers 2xx. Check the signature (Standard Webhooks v1) before trusting the body, and deduplicate on its id.
+
     Amounts are plain numbers in the market's currency (1200.5 is 1,200.50), never minor units. Fields listed with x-extensible-enum may gain values: treat an unknown one as unknown, not as an error. New fields may appear in any response.
   contact:
     name: Cru World Wine
@@ -90,6 +92,7 @@ tags:
 - name: Buy and sell
 - name: Your addresses
 - name: Confirmations
+- name: Webhooks
 paths:
   /ping:
     get:
@@ -120,6 +123,49 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PingResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /account:
+    get:
+      operationId: getAccount
+      summary: Your account
+      description: |-
+        Your account at a glance: contact details, company users, membership, and the figures on Cru’s Account Summary page.
+
+        **The Account Summary page, as data.** portfolio, warehouses and selling are the boxes on the Account Summary page of the Cru site you called, in its currency; performance is how the portfolio’s value has moved over 1 month, 6 months, 1 year and all time.
+
+        **Asked for by name.** A connected app gets account:read only when it asks for it by name, since it carries the email addresses of the customer and their company’s users.
+      tags:
+      - Account
+      x-cru-sdk:
+        resource: account
+        method: get
+      x-cru-scope: account:read
+      security:
+      - ClientKey: []
+        ClientSecret: []
+      - OAuth:
+        - account:read
+      responses:
+        '200':
+          description: The account, in the currency of the market you called.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetAccountResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -2455,6 +2501,19 @@ paths:
             - sold
             - in_transit
             - delivered
+      - name: purchase_ref
+        in: query
+        required: false
+        description: 'Only the lines of these purchases: up to 50 comma-separated, in any case, each ord- and a number,
+          as each purchase’s purchase_ref and a purchase.created webhook’s data.purchase_ref give it. Anything else
+          is refused with VALIDATION_INVALID_VALUE.'
+        style: form
+        explode: false
+        schema:
+          type: array
+          items:
+            type: string
+          maxItems: 50
       - name: sort
         in: query
         required: false
@@ -2526,7 +2585,7 @@ paths:
 
         **One sale per unit.** Each unit sold is its own sale, with quantity 1, its cru_id and no order number. sold_price, commission and settlement_fee take the sale down to net_proceeds, what you received, and profit_loss sets that against cost.
 
-        **Wine held outside Cru, on its way to Cru.** Once it sells, wine held outside Cru goes to the Cru warehouse deliver_to names, by deliver_by. status says how far it has got: transfer_needed until a transfer to Cru is booked, then awaiting_transfer, with transfer_ref naming the transfer; on_purchase_order while it is due in on a purchase order; and delivered_to_cru once it is there. Wine stored with Cru has no deliver_to, and is always delivered_to_cru.
+        **Wine held outside Cru, on its way to Cru.** Once it sells, wine held outside Cru goes to the Cru warehouse deliver_to names, by deliver_by. status says how far it has got: transfer_needed until a transfer to Cru is booked, then awaiting_transfer, with transfer_ref naming the transfer; on_purchase_order while it is due in on a purchase order; and delivered_to_cru once it is there. A sale from your offers feed (or Liv-ex) is on_purchase_order until every unit of it has reached Cru, then delivered_to_cru; one filled from wine already stored with Cru is delivered_to_cru at once. Wine stored with Cru has no deliver_to, and is always delivered_to_cru.
       tags:
       - Your portfolio
       x-cru-sdk:
@@ -2585,6 +2644,19 @@ paths:
             - SG_TOLL
             - FR_DARTESS
             - US_NAPA
+      - name: sale_ref
+        in: query
+        required: false
+        description: 'Only the units of these sales: up to 50 comma-separated, in any case, each stpo-, lx-, csi- or
+          esp- and a number, as each sale’s sale_ref and a sale.created webhook’s data.sale_ref give it. Anything
+          else is refused with VALIDATION_INVALID_VALUE.'
+        style: form
+        explode: false
+        schema:
+          type: array
+          items:
+            type: string
+          maxItems: 50
       - name: sort
         in: query
         required: false
@@ -3148,6 +3220,729 @@ paths:
           $ref: '#/components/responses/InternalError'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
+  /webhooks:
+    get:
+      operationId: listWebhooks
+      summary: List your webhooks
+      description: |-
+        The webhooks your account has, oldest first: where each sends, what it is sent, and whether it is working.
+
+        **Told when you sell or buy, rather than polling.** A webhook is an https URL of yours that Cru sends a signed POST to when something happens on your account: sale.created when you sell wine, purchase.created when an order of yours is paid. Each side of a trade hears only about its own side. The body is a WebhookEvent; check its signature before trusting it.
+
+        **A server's key only.** webhooks:manage is granted on a client key and secret, a partner's or a customer's own, and never to a connected app.
+      tags:
+      - Webhooks
+      x-cru-sdk:
+        resource: webhooks
+        method: list
+      x-cru-scope: webhooks:manage
+      security:
+      - ClientKey: []
+        ClientSecret: []
+      responses:
+        '200':
+          description: data.webhooks, every webhook on your account, including those switched off, but not those
+            deleted. An account has at most 5.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListWebhooksResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+    post:
+      operationId: createWebhook
+      summary: Add a webhook
+      description: |-
+        Tell Cru where to send your account’s events. The answer carries the signing secret, once.
+
+        **Keep the secret now.** signing_secret is shown in this answer and when it is rotated, never again. Store it as you would a password: it is what proves a delivery came from Cru.
+
+        **Amounts in your account’s currency.** A sale.created body is in your account’s currency: a supplier’s, that of its offer feed; anyone else’s, that of the Cru site they use. A purchase.created body is always in the currency the order was paid in.
+
+        **Check it works.** Send it a test with POST /webhooks/{id}/test as soon as it is added: your endpoint should check the signature and answer 2xx.
+      tags:
+      - Webhooks
+      x-cru-sdk:
+        resource: webhooks
+        method: create
+      x-cru-scope: webhooks:manage
+      security:
+      - ClientKey: []
+        ClientSecret: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWebhookRequest'
+      responses:
+        '201':
+          description: data.webhook, enabled, with signing_secret after its other fields.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateWebhookResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /webhooks/{id}:
+    get:
+      operationId: getWebhook
+      summary: Retrieve a webhook
+      description: One of your webhooks, with how its deliveries have been going.
+      tags:
+      - Webhooks
+      x-cru-sdk:
+        resource: webhooks
+        method: get
+      x-cru-scope: webhooks:manage
+      security:
+      - ClientKey: []
+        ClientSecret: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: The webhook’s whs_ id, from GET /webhooks or the answer that added it.
+        schema:
+          type: string
+      responses:
+        '200':
+          description: data.webhook.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetWebhookResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+    patch:
+      operationId: updateWebhook
+      summary: Change a webhook
+      description: |-
+        Change where a webhook sends or what it is sent, or switch it off or back on. Send only what changes.
+
+        **Back on after an outage.** Once your endpoint works again, switch the webhook on with enabled true, then send what failed meanwhile with POST /webhooks/{id}/retry. Events that happened while it was off were never sent to it: list them with GET /webhooks/events and send each again, or read your trades for them.
+      tags:
+      - Webhooks
+      x-cru-sdk:
+        resource: webhooks
+        method: update
+      x-cru-scope: webhooks:manage
+      security:
+      - ClientKey: []
+        ClientSecret: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: The webhook’s whs_ id, from GET /webhooks or the answer that added it.
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateWebhookRequest'
+      responses:
+        '200':
+          description: data.webhook, as it is now.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetWebhookResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+    delete:
+      operationId: deleteWebhook
+      summary: Delete a webhook
+      description: Stop sending to a webhook for good. What was still waiting to be sent to it is cancelled; its
+        deliveries stay in GET /webhooks/deliveries. To stop for a while instead, switch it off with PATCH /webhooks/{id}.
+      tags:
+      - Webhooks
+      x-cru-sdk:
+        resource: webhooks
+        method: remove
+      x-cru-scope: webhooks:manage
+      security:
+      - ClientKey: []
+        ClientSecret: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: The webhook’s whs_ id, from GET /webhooks or the answer that added it.
+        schema:
+          type: string
+      responses:
+        '204':
+          description: Deleted. No body.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /webhooks/{id}/test:
+    post:
+      operationId: testWebhook
+      summary: Send a test
+      description: |-
+        Have Cru send a webhook.test to one webhook, signed like every delivery, to check your endpoint end to end.
+
+        **Queued, not sent.** The answer only says it is queued: Cru sends it within seconds, and GET /webhooks/deliveries/{id} shows how it went. A test goes to this webhook alone, is tried once, and is never an event, so GET /webhooks/events does not list it. A webhook that is switched off is refused with VALIDATION_INVALID_VALUE: switch it on first.
+      tags:
+      - Webhooks
+      x-cru-sdk:
+        resource: webhooks
+        method: test
+      x-cru-scope: webhooks:manage
+      security:
+      - ClientKey: []
+        ClientSecret: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: The webhook’s whs_ id, from GET /webhooks or the answer that added it.
+        schema:
+          type: string
+      responses:
+        '202':
+          description: data.delivery, the test, pending.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookDeliveryResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /webhooks/{id}/rotate:
+    post:
+      operationId: rotateWebhookSecret
+      summary: Rotate the signing secret
+      description: |-
+        Give a webhook a new signing secret. For 24 hours the old one signs every delivery too, so you can switch over without missing one.
+
+        **Two signatures for a day.** For the next 24 hours, webhook-signature carries two signatures, separated by a space: one with each secret. Accept a delivery if either matches, and move your endpoint to the new secret within the day.
+      tags:
+      - Webhooks
+      x-cru-sdk:
+        resource: webhooks
+        method: rotate_secret
+      x-cru-scope: webhooks:manage
+      security:
+      - ClientKey: []
+        ClientSecret: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: The webhook’s whs_ id, from GET /webhooks or the answer that added it.
+        schema:
+          type: string
+      responses:
+        '200':
+          description: data.webhook, with its new signing_secret after its other fields.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateWebhookResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /webhooks/{id}/retry:
+    post:
+      operationId: retryWebhook
+      summary: Send failed deliveries again
+      description: |-
+        After an outage, queue every delivery to this webhook that Cru gave up on, each with a fresh 72 hours of retries.
+
+        **Queued, not sent.** Each goes with the body and webhook-id it had, and any pause on the webhook is lifted. A webhook that is switched off is refused with VALIDATION_INVALID_VALUE: switch it on first.
+      tags:
+      - Webhooks
+      x-cru-sdk:
+        resource: webhooks
+        method: retry
+      x-cru-scope: webhooks:manage
+      security:
+      - ClientKey: []
+        ClientSecret: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: The webhook’s whs_ id, from GET /webhooks or the answer that added it.
+        schema:
+          type: string
+      responses:
+        '202':
+          description: data.queued, how many failed deliveries were queued again, 0 when there were none.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetryWebhookResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /webhooks/deliveries:
+    get:
+      operationId: listWebhookDeliveries
+      summary: List deliveries
+      description: |-
+        Every event Cru has sent, or is sending, to each of your webhooks, newest first: how far it got, and what your endpoint said.
+
+        **One event, one webhook.** A delivery is one event sent to one webhook, with all its attempts: GET /webhooks/deliveries/{id} lists them, with the body sent.
+      tags:
+      - Webhooks
+      x-cru-sdk:
+        resource: webhook_deliveries
+        method: list
+        paged: true
+      x-cru-scope: webhooks:manage
+      security:
+      - ClientKey: []
+        ClientSecret: []
+      parameters:
+      - name: webhook_id
+        in: query
+        required: false
+        description: Only deliveries to this webhook. One that is not yours matches none.
+        schema:
+          type: string
+          maxLength: 40
+      - name: status
+        in: query
+        required: false
+        description: 'Only deliveries in any of these states, comma-separated: pending, delivered, failed or cancelled.
+          Anything else is refused with VALIDATION_UNSUPPORTED_VALUE.'
+        style: form
+        explode: false
+        schema:
+          type: array
+          items:
+            type: string
+            enum:
+            - pending
+            - delivered
+            - failed
+            - cancelled
+      - name: event_type
+        in: query
+        required: false
+        description: 'Only deliveries of these types, comma-separated: sale.created, purchase.created or webhook.test.
+          Anything else is refused with VALIDATION_UNSUPPORTED_VALUE.'
+        style: form
+        explode: false
+        schema:
+          type: array
+          items:
+            type: string
+            enum:
+            - sale.created
+            - purchase.created
+            - webhook.test
+      - name: event_id
+        in: query
+        required: false
+        description: 'Only the deliveries of one event, by its evt_ id: one per webhook that was sent it.'
+        schema:
+          type: string
+          maxLength: 40
+      - name: ref
+        in: query
+        required: false
+        description: Only deliveries about one sale or purchase, by its sale_ref or purchase_ref, in any case.
+        schema:
+          type: string
+          maxLength: 64
+      - name: since
+        in: query
+        required: false
+        description: 'Only deliveries queued at or after this: a date, YYYY-MM-DD, or an RFC 3339 timestamp, such as
+          2026-11-06T09:00:00Z. Anything else is refused with VALIDATION_INVALID_VALUE.'
+        schema:
+          type: string
+      - name: limit
+        in: query
+        required: false
+        description: Number of deliveries to return. A larger value is refused with VALIDATION_INVALID_VALUE, not
+          reduced.
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 250
+          default: 50
+      - name: offset
+        in: query
+        required: false
+        description: Number of deliveries to skip.
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+      responses:
+        '200':
+          description: data.deliveries, newest first. meta.pagination counts deliveries.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListWebhookDeliveriesResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /webhooks/deliveries/{id}:
+    get:
+      operationId: getWebhookDelivery
+      summary: Retrieve a delivery
+      description: One delivery, with every attempt — when, how long, and what your endpoint answered — and the exact
+        body Cru sent.
+      tags:
+      - Webhooks
+      x-cru-sdk:
+        resource: webhook_deliveries
+        method: get
+      x-cru-scope: webhooks:manage
+      security:
+      - ClientKey: []
+        ClientSecret: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: The delivery’s dlv_ id, from GET /webhooks/deliveries or the Cru-Delivery-Id header of a request
+          Cru sent you.
+        schema:
+          type: string
+      responses:
+        '200':
+          description: data.delivery, as GET /webhooks/deliveries lists it, then attempt_history and payload.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetWebhookDeliveryResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /webhooks/deliveries/{id}/resend:
+    post:
+      operationId: resendWebhookDelivery
+      summary: Send a delivery again
+      description: |-
+        Queue one delivery again, whatever became of it, with the same body and webhook-id and a fresh 72 hours of retries.
+
+        **Queued, not sent.** Your endpoint should already deduplicate on webhook-id, which is unchanged. A delivery to a webhook that is switched off is refused with VALIDATION_INVALID_VALUE: switch it on first.
+      tags:
+      - Webhooks
+      x-cru-sdk:
+        resource: webhook_deliveries
+        method: resend
+      x-cru-scope: webhooks:manage
+      security:
+      - ClientKey: []
+        ClientSecret: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: The delivery’s dlv_ id, from GET /webhooks/deliveries or the Cru-Delivery-Id header of a request
+          Cru sent you.
+        schema:
+          type: string
+      responses:
+        '202':
+          description: data.delivery, pending again.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookDeliveryResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /webhooks/events:
+    get:
+      operationId: listWebhookEvents
+      summary: List events
+      description: |-
+        What has happened on your account, oldest first, whether or not a webhook was sent it: the feed to catch up from.
+
+        **Recorded even when nothing is listening.** Cru records an event whether your webhooks are on, off, failing or not added yet. Keep the id of the last event you handled, and after an outage list from it, giving the last id listed as after, until meta.pagination.has_more is false (or fewer than limit come back). Each event’s ref reads with GET /trades/sales?sale_ref= or GET /trades/purchases?purchase_ref=.
+      tags:
+      - Webhooks
+      x-cru-sdk:
+        resource: webhook_events
+        method: list
+      x-cru-scope: webhooks:manage
+      security:
+      - ClientKey: []
+        ClientSecret: []
+      parameters:
+      - name: after
+        in: query
+        required: false
+        description: 'The id of the last event you handled: only events after it are listed. Leave it out to start
+          from the first. An id that is not one of your events is refused with NOT_FOUND.'
+        schema:
+          type: string
+          maxLength: 40
+      - name: type
+        in: query
+        required: false
+        description: 'Only events of these types, comma-separated: sale.created or purchase.created. Tests are never
+          events, so webhook.test is refused with VALIDATION_UNSUPPORTED_VALUE.'
+        style: form
+        explode: false
+        schema:
+          type: array
+          items:
+            type: string
+            enum:
+            - sale.created
+            - purchase.created
+      - name: limit
+        in: query
+        required: false
+        description: Number of events to return. A larger value is refused with VALIDATION_INVALID_VALUE, not reduced.
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 250
+          default: 100
+      responses:
+        '200':
+          description: 'data.events, oldest first. meta.pagination is limit, after as you sent it, and has_more: true
+            when there are more after the last one listed. It has no offset and no total.'
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListWebhookEventsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /webhooks/events/{id}/resend:
+    post:
+      operationId: resendWebhookEvent
+      summary: Send an event again
+      description: |-
+        Queue one event to every webhook of yours that is switched on and wants its type now, including webhooks it was never sent to.
+
+        **The same event, to whoever wants it now.** A webhook it was sent to before gets that delivery again, with the same body and webhook-id. One it was not sent to — switched off then, or added since — gets a new delivery, with the same webhook-id and the sale or purchase as it is now. A webhook that is switched off, or does not take the type, gets nothing.
+      tags:
+      - Webhooks
+      x-cru-sdk:
+        resource: webhook_events
+        method: resend
+      x-cru-scope: webhooks:manage
+      security:
+      - ClientKey: []
+        ClientSecret: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: The event’s evt_ id, from GET /webhooks/events or the webhook-id header of a request Cru sent you.
+        schema:
+          type: string
+      responses:
+        '202':
+          description: data.deliveries, one per webhook it was queued to, pending. [] when no webhook wants it now.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResendWebhookEventResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
 components:
   securitySchemes:
     ClientKey:
@@ -3179,6 +3974,8 @@ components:
             offers:read: Read your own listings, with what the listed wine cost
             trades:read: Read what you have bought and sold, with the order and invoice references
             addresses:read: Read your own inbond addresses
+            account:read: Read your account summary, with your email address and those of your company’s users.
+              Given only when asked for by name
             bids:write: Place, change, renew and cancel bids
             offers:write: List, change and remove offers
             orders:write: Buy and sell straight away, alongside bids:write or offers:write
@@ -3225,7 +4022,8 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
     NotFound:
-      description: 'Not found: NOT_FOUND, BID_NOT_FOUND, OFFER_NOT_FOUND, CONFIRMATION_NOT_FOUND, API_VERSION_UNSUPPORTED.'
+      description: 'Not found: NOT_FOUND (also a webhook, delivery or event that is not yours), BID_NOT_FOUND, OFFER_NOT_FOUND,
+        CONFIRMATION_NOT_FOUND, API_VERSION_UNSUPPORTED.'
       headers:
         X-Request-Id:
           $ref: '#/components/headers/X-Request-Id'
@@ -3302,6 +4100,399 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
   schemas:
+    Account:
+      type: object
+      required:
+      - account_number
+      - name
+      - email
+      - company_name
+      - image_url
+      - account_type
+      - member_since
+      - market
+      - company_users
+      properties:
+        account_number:
+          description: The customer’s Cru account number, five digits.
+          type: string
+          nullable: true
+        name:
+          description: The account holder’s name.
+          type: string
+          nullable: true
+        email:
+          description: The account holder’s email address, which Cru contacts them at.
+          type: string
+          nullable: true
+        company_name:
+          description: The account’s company, if any.
+          type: string
+          nullable: true
+        image_url:
+          description: The profile picture Cru’s site shows for the account. null when there is none.
+          type: string
+          format: uri
+          nullable: true
+        account_type:
+          description: The kind of account, as Cru names it, such as Corporate Client.
+          type: string
+          nullable: true
+        member_since:
+          description: When the account was opened, RFC 3339 UTC.
+          type: string
+          format: date-time
+          nullable: true
+        market:
+          description: The market you called, such as uk.
+          type: string
+        company_users:
+          description: The other active users on a company account. Users still invited, on hold or declined are
+            left out. [] for an account with none.
+          type: array
+          items:
+            $ref: '#/components/schemas/AccountCompanyUser'
+    AccountCompanyUser:
+      type: object
+      required:
+      - name
+      - email
+      - role
+      properties:
+        name:
+          description: The user’s name.
+          type: string
+          nullable: true
+        email:
+          description: The user’s email address.
+          type: string
+          nullable: true
+        role:
+          description: 'Their role on the company account: Owner, Trader or Administrator.'
+          type: string
+          nullable: true
+          x-extensible-enum:
+          - Owner
+          - Trader
+          - Administrator
+    AccountMembership:
+      type: object
+      required:
+      - is_member
+      - tier
+      - status
+      - is_active
+      - is_in_trial
+      - trial_ends_at
+      - started_at
+      - renews_at
+      - auto_renew
+      - billing_period
+      - vinios_balance
+      - vinios_value
+      properties:
+        is_member:
+          description: false for a customer who never subscribed, whose status reads None.
+          type: boolean
+        tier:
+          description: The membership tier, as Cru names it.
+          type: string
+          nullable: true
+        status:
+          description: None, Active (paid and renewing), Trial (the free trial), Cancelled (active until renews_at,
+            then lapses) or Expired.
+          type: string
+          nullable: true
+          x-extensible-enum:
+          - None
+          - Active
+          - Trial
+          - Cancelled
+          - Expired
+        is_active:
+          description: Whether the membership is in force now.
+          type: boolean
+        is_in_trial:
+          description: Whether it is in its free trial.
+          type: boolean
+        trial_ends_at:
+          description: When the trial ends and the first charge is due, RFC 3339 UTC.
+          type: string
+          format: date-time
+          nullable: true
+        started_at:
+          description: When the membership started, RFC 3339 UTC.
+          type: string
+          format: date-time
+          nullable: true
+        renews_at:
+          description: When it next renews or, once cancelled, lapses, RFC 3339 UTC.
+          type: string
+          format: date-time
+          nullable: true
+        auto_renew:
+          description: true only while status is Active.
+          type: boolean
+        billing_period:
+          description: month or year. null for a customer who is not a member.
+          type: string
+          nullable: true
+          x-extensible-enum:
+          - month
+          - year
+        vinios_balance:
+          description: The account’s Vinios.
+          type: number
+        vinios_value:
+          description: What those Vinios are worth, in data.currency.
+          type: number
+          nullable: true
+    AccountPerformance:
+      type: object
+      required:
+      - period
+      - start_date
+      - start_value
+      - current_value
+      - change
+      - change_percent
+      properties:
+        period:
+          description: 1_month, 6_months, 1_year or all_time.
+          type: string
+          x-extensible-enum:
+          - 1_month
+          - 6_months
+          - 1_year
+          - all_time
+        start_date:
+          description: 'The day the period is measured from, YYYY-MM-DD: the last daily snapshot on or before its first
+            day or, for all_time, the first snapshot. null when the account’s history is shorter than the period.'
+          type: string
+          format: date
+          nullable: true
+        start_value:
+          description: total_portfolio_value on start_date. null with start_date.
+          type: number
+          nullable: true
+        current_value:
+          description: total_portfolio_value today.
+          type: number
+          nullable: true
+        change:
+          description: current_value less start_value. null with start_date.
+          type: number
+          nullable: true
+        change_percent:
+          description: change as a percentage of start_value, to two decimal places. null where start_value is under
+            a tenth of current_value, when the change is mostly wine bought or moved in rather than the market.
+          type: number
+          nullable: true
+    AccountPortfolio:
+      type: object
+      required:
+      - total_portfolio_value
+      - wine_value
+      - cost
+      - profit_loss
+      - profit_loss_percent
+      - account_credit
+      - pending_credit
+      - outstanding_invoices
+      - overdue_invoices
+      - outstanding_storage
+      - stored_with_cru_value
+      - stored_elsewhere_value
+      - units
+      - units_landed
+      - units_due_in
+      - bottles
+      - casks
+      properties:
+        total_portfolio_value:
+          description: wine_value plus account_credit and pending_credit, less outstanding_invoices.
+          type: number
+          nullable: true
+        wine_value:
+          description: The wine held, at Cru’s market prices.
+          type: number
+          nullable: true
+        cost:
+          description: What that wine cost.
+          type: number
+          nullable: true
+        profit_loss:
+          description: Its gain or loss on cost.
+          type: number
+          nullable: true
+        profit_loss_percent:
+          description: profit_loss as a percentage of cost, to two decimal places.
+          type: number
+        account_credit:
+          description: Credit on the account, ready to spend.
+          type: number
+          nullable: true
+        pending_credit:
+          description: Account credit pending delivery, as the site labels it.
+          type: number
+          nullable: true
+        outstanding_invoices:
+          description: What the account owes on unpaid invoices.
+          type: number
+          nullable: true
+        overdue_invoices:
+          description: The part of that past its due date.
+          type: number
+          nullable: true
+        outstanding_storage:
+          description: Storage charges owed.
+          type: number
+          nullable: true
+        stored_with_cru_value:
+          description: The part of wine_value stored with Cru.
+          type: number
+          nullable: true
+        stored_elsewhere_value:
+          description: The part held outside Cru.
+          type: number
+          nullable: true
+        units:
+          description: Units held, in total.
+          type: integer
+        units_landed:
+          description: Of those, units in stock.
+          type: integer
+        units_due_in:
+          description: Units on their way.
+          type: integer
+        bottles:
+          description: Bottles held.
+          type: integer
+        casks:
+          description: Casks held.
+          type: integer
+    AccountSelling:
+      type: object
+      required:
+      - listed_units
+      - listed_value
+      - best_offer_units
+      - best_offer_value
+      - sold_last_12_months_units
+      - sold_last_12_months_value
+      properties:
+        listed_units:
+          description: Units listed for sale.
+          type: integer
+        listed_value:
+          description: What they are worth at Cru’s market prices.
+          type: number
+          nullable: true
+        best_offer_units:
+          description: Units in the same condition as the wine’s best offer on Cru.
+          type: integer
+        best_offer_value:
+          description: What those units come to at that offer’s price.
+          type: number
+          nullable: true
+        sold_last_12_months_units:
+          description: Units sold in the last 12 months.
+          type: integer
+        sold_last_12_months_value:
+          description: What they sold for.
+          type: number
+          nullable: true
+    AccountSummary:
+      type: object
+      required:
+      - account
+      - membership
+      - currency
+      - portfolio
+      - warehouses
+      - selling
+      - performance
+      properties:
+        account:
+          description: 'Who the account is: its holder, company and active company users.'
+          $ref: '#/components/schemas/Account'
+        membership:
+          description: The Cru membership the account holds.
+          $ref: '#/components/schemas/AccountMembership'
+        currency:
+          description: 'ISO 4217 currency of every amount here: the currency of the market you called.'
+          type: string
+          x-extensible-enum:
+          - GBP
+          - USD
+          - HKD
+          - SGD
+          - EUR
+          - AED
+          - CNY
+        portfolio:
+          description: The Portfolio Summary box on the Account Summary page.
+          $ref: '#/components/schemas/AccountPortfolio'
+        warehouses:
+          description: What the account holds in each warehouse. [] when it holds nothing.
+          type: array
+          items:
+            $ref: '#/components/schemas/AccountWarehouse'
+        selling:
+          description: The Selling Summary on the Account Summary page.
+          $ref: '#/components/schemas/AccountSelling'
+        performance:
+          description: How the portfolio’s value has moved, one item for each of 1_month, 6_months, 1_year and all_time,
+            in that order.
+          type: array
+          items:
+            $ref: '#/components/schemas/AccountPerformance'
+    AccountWarehouse:
+      type: object
+      required:
+      - name
+      - units
+      - landed
+      - due_in
+      - value
+      properties:
+        name:
+          description: The warehouse’s name.
+          type: string
+          nullable: true
+        units:
+          description: 'Units there: landed plus due_in.'
+          type: integer
+        landed:
+          description: Units in stock there.
+          type: integer
+        due_in:
+          description: Units on their way there.
+          type: integer
+        value:
+          description: 'What they are worth: at Cru’s market price, or at cost for a wine with none.'
+          type: number
+          nullable: true
+    GetAccountResponse:
+      type: object
+      required:
+      - status
+      - message
+      - meta
+      - data
+      properties:
+        status:
+          description: OK on success, ERROR on failure. It describes the call, never a resource.
+          type: string
+          enum:
+          - OK
+        message:
+          description: 'A sentence for people. It is not stable: never branch on it.'
+          type: string
+        meta:
+          $ref: '#/components/schemas/Meta'
+        data:
+          $ref: '#/components/schemas/AccountSummary'
     AddInbondAddressRequest:
       type: object
       required:
@@ -3358,8 +4549,10 @@ components:
     ApiClient:
       type: object
       required:
+      - kind
       - environment
       - key_prefix
+      - account_number
       - organisation
       - label
       - market
@@ -3367,11 +4560,22 @@ components:
       - scopes
       - expires_at
       properties:
+        kind:
+          description: 'How the request was made: partner for a client key and secret, whether Cru issued it to a
+            partner or to the customer themselves; customer for a connected app’s access token.'
+          type: string
+          x-extensible-enum:
+          - partner
+          - customer
         environment:
           description: live on production, test everywhere else.
           type: string
         key_prefix:
           description: The start of the client key that called, such as cru_live_ABCD... Null for a connected app.
+          type: string
+          nullable: true
+        account_number:
+          description: The Cru account number of the customer the credential or token acts for, five digits.
           type: string
           nullable: true
         organisation:
@@ -4850,6 +6054,7 @@ components:
       - vintage
       - pack_size
       - product_url
+      - image_url
       - currency
       - code
       - price
@@ -4879,6 +6084,11 @@ components:
           type: string
           format: uri
           nullable: true
+        image_url:
+          description: 'The bottle photo Cru’s site shows beside the wine, to show beside it in yours. Never null:
+            a wine Cru has no photo of gets the site’s placeholder bottle.'
+          type: string
+          format: uri
         currency:
           description: 'ISO 4217 currency of every price in this market: the currency of the market you called.'
           type: string
@@ -4996,6 +6206,7 @@ components:
       - vintage
       - pack_size
       - product_url
+      - image_url
       - currency
       - code
       - price
@@ -5029,6 +6240,11 @@ components:
           type: string
           format: uri
           nullable: true
+        image_url:
+          description: 'The bottle photo Cru’s site shows beside the wine, to show beside it in yours. Never null:
+            a wine Cru has no photo of gets the site’s placeholder bottle.'
+          type: string
+          format: uri
         currency:
           description: 'ISO 4217 currency of every price in this market: the currency of the market you called.'
           type: string
@@ -5104,6 +6320,7 @@ components:
       - vintage
       - pack_size
       - product_url
+      - image_url
       - currency
       properties:
         lwin18:
@@ -5126,6 +6343,11 @@ components:
           type: string
           format: uri
           nullable: true
+        image_url:
+          description: 'The bottle photo Cru’s site shows beside the wine, to show beside it in yours. Never null:
+            a wine Cru has no photo of gets the site’s placeholder bottle.'
+          type: string
+          format: uri
         currency:
           description: 'ISO 4217 currency of every price in this market: the currency of the market you called.'
           type: string
@@ -5300,6 +6522,7 @@ components:
       - vintage
       - pack_size
       - product_url
+      - image_url
       - price
       - currency
       - bid_currency
@@ -5344,6 +6567,11 @@ components:
           type: string
           format: uri
           nullable: true
+        image_url:
+          description: 'The bottle photo Cru’s site shows beside the wine, to show beside it in yours. Never null:
+            a wine Cru has no photo of gets the site’s placeholder bottle.'
+          type: string
+          format: uri
         price:
           description: Gross price per unit you offered — before Cru’s commission — in the currency of the market
             you called. A bid placed in another currency is converted at today’s rate, as My Bids on Cru shows it.
@@ -5564,6 +6792,7 @@ components:
       - condition_text
       - is_listed
       - pricing
+      - import
       - photo_urls
       - quantity
       - warehouse
@@ -5616,6 +6845,24 @@ components:
           type: boolean
         pricing:
           $ref: '#/components/schemas/LinePricing'
+        import:
+          description: 'For wine held outside Cru that the customer added by uploading a wine list on Cru’s site:
+            the list it came from. null for every other line.'
+          type: object
+          nullable: true
+          required:
+          - file
+          - imported_at
+          properties:
+            file:
+              description: The name of the file uploaded.
+              type: string
+              nullable: true
+            imported_at:
+              description: When it was uploaded, RFC 3339 UTC.
+              type: string
+              format: date-time
+              nullable: true
         photo_urls:
           description: Photos of the units in this line, on Cru’s media. [] when there are none.
           type: array
@@ -5635,6 +6882,7 @@ components:
       - vintage
       - pack_size
       - product_url
+      - image_url
       - currency
       - total_quantity
       - market_price
@@ -5662,6 +6910,11 @@ components:
           type: string
           format: uri
           nullable: true
+        image_url:
+          description: 'The bottle photo Cru’s site shows beside the wine, to show beside it in yours. Never null:
+            a wine Cru has no photo of gets the site’s placeholder bottle.'
+          type: string
+          format: uri
         currency:
           description: 'ISO 4217 currency of every price here: the currency of the market you called. A price bought
             or listed in another currency is converted at today’s rate.'
@@ -5717,12 +6970,14 @@ components:
       - wine_name
       - vintage
       - pack_size
+      - image_url
       - quantity
       - price
       - total
       - currency
       - reference
       - traded_at
+      - purchase_ref
       - order_status
       - order_url
       - invoice_number
@@ -5744,6 +6999,11 @@ components:
           description: Pack format, for example 6x75cl.
           type: string
           nullable: true
+        image_url:
+          description: 'The bottle photo Cru’s site shows beside the wine, to show beside it in yours. Never null:
+            a wine Cru has no photo of gets the site’s placeholder bottle.'
+          type: string
+          format: uri
         quantity:
           description: Units in this order line, less any cancelled or refunded.
           type: integer
@@ -5771,6 +7031,11 @@ components:
           description: When the order was placed, RFC 3339 UTC.
           type: string
           format: date-time
+        purchase_ref:
+          description: 'The purchase this line is part of, ord- and a number, such as ord-90211: the same on every
+            line of one order. A purchase.created webhook names it as data.purchase_ref, and the purchase_ref filter
+            takes it.'
+          type: string
         order_status:
           description: The order’s status, as Cru’s site labels it, such as “Paid and Processing”.
           type: string
@@ -5942,12 +7207,15 @@ components:
       - wine_name
       - vintage
       - pack_size
+      - image_url
       - quantity
       - price
       - total
       - currency
       - reference
       - traded_at
+      - sale_ref
+      - trade_id
       - cru_id
       - transfer_ref
       - cost
@@ -5978,6 +7246,11 @@ components:
           description: Pack format, for example 6x75cl.
           type: string
           nullable: true
+        image_url:
+          description: 'The bottle photo Cru’s site shows beside the wine, to show beside it in yours. Never null:
+            a wine Cru has no photo of gets the site’s placeholder bottle.'
+          type: string
+          format: uri
         quantity:
           description: 'Always 1: each unit sold is its own sale.'
           type: integer
@@ -6011,6 +7284,18 @@ components:
           description: When it sold, RFC 3339 UTC.
           type: string
           format: date-time
+          nullable: true
+        sale_ref:
+          description: 'The sale this unit was part of, a prefix and a number: stpo- for wine sold from a supplier’s
+            stock, shared by every unit of that sale, as is lx- for a sale through Liv-ex; csi- for one unit stored
+            with Cru; esp- for one unit held outside Cru. A sale.created webhook names it as data.sale_ref, and
+            the sale_ref filter takes it.'
+          type: string
+        trade_id:
+          description: 'The trade’s own number on a stpo- or lx- sale: the supplier’s purchase order or trade number,
+            or the Liv-ex trade number, LX and digits. null until the order is placed with the supplier, and always
+            on csi- and esp- sales.'
+          type: string
           nullable: true
         cru_id:
           description: The unit’s Cru ID.
@@ -6070,7 +7355,9 @@ components:
           nullable: true
         status:
           description: 'Where the wine is in reaching Cru, as the status filter takes it: transfer_needed, awaiting_transfer,
-            on_purchase_order or delivered_to_cru. Wine stored with Cru is always delivered_to_cru.'
+            on_purchase_order or delivered_to_cru. A sale from your offers feed is on_purchase_order until every
+            unit of it has reached Cru, unless it was filled from wine already stored with Cru. Wine stored
+            with Cru is always delivered_to_cru.'
           type: string
           nullable: true
           x-extensible-enum:
@@ -6610,6 +7897,776 @@ components:
           - EUR
           - AED
           - CNY
+    Webhook:
+      type: object
+      required:
+      - id
+      - url
+      - event_types
+      - enabled
+      - disabled_reason
+      - failing_since
+      - paused_until
+      - last_success_at
+      - last_failure_at
+      - created_at
+      - updated_at
+      properties:
+        id:
+          description: 'The webhook’s id: whs_ and 24 hex characters. The {id} of /webhooks/{id}.'
+          type: string
+        url:
+          description: 'Where Cru sends events: an https URL.'
+          type: string
+          format: uri
+        event_types:
+          description: 'What it is sent: sale.created, purchase.created, or both.'
+          type: array
+          items:
+            type: string
+        enabled:
+          description: 'Whether Cru sends to it. false once you switch it off, or Cru does: after it answers 410 Gone,
+            or when no delivery has succeeded for 72 hours.'
+          type: boolean
+        disabled_reason:
+          description: Why it was switched off, for a person to read. The wording can change, so code should not parse
+            it. null while enabled.
+          type: string
+          nullable: true
+        failing_since:
+          description: When the current run of failed deliveries began, RFC 3339 UTC. null while deliveries succeed.
+          type: string
+          format: date-time
+          nullable: true
+        paused_until:
+          description: After five failures in a row, when Cru will try it again, RFC 3339 UTC. null when it is not
+            paused.
+          type: string
+          format: date-time
+          nullable: true
+        last_success_at:
+          description: The last delivery your endpoint accepted, RFC 3339 UTC.
+          type: string
+          format: date-time
+          nullable: true
+        last_failure_at:
+          description: The last delivery attempt that failed, RFC 3339 UTC.
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          description: RFC 3339 UTC.
+          type: string
+          format: date-time
+        updated_at:
+          description: RFC 3339 UTC.
+          type: string
+          format: date-time
+    WebhookWithSecret:
+      description: A webhook as it is added or its secret rotated, with the signing secret, the only time it is shown.
+      type: object
+      required:
+      - id
+      - url
+      - event_types
+      - enabled
+      - disabled_reason
+      - failing_since
+      - paused_until
+      - last_success_at
+      - last_failure_at
+      - created_at
+      - updated_at
+      - signing_secret
+      properties:
+        id:
+          description: 'The webhook’s id: whs_ and 24 hex characters. The {id} of /webhooks/{id}.'
+          type: string
+        url:
+          description: 'Where Cru sends events: an https URL.'
+          type: string
+          format: uri
+        event_types:
+          description: 'What it is sent: sale.created, purchase.created, or both.'
+          type: array
+          items:
+            type: string
+        enabled:
+          description: 'Whether Cru sends to it. false once you switch it off, or Cru does: after it answers 410 Gone,
+            or when no delivery has succeeded for 72 hours.'
+          type: boolean
+        disabled_reason:
+          description: Why it was switched off, for a person to read. The wording can change, so code should not parse
+            it. null while enabled.
+          type: string
+          nullable: true
+        failing_since:
+          description: When the current run of failed deliveries began, RFC 3339 UTC. null while deliveries succeed.
+          type: string
+          format: date-time
+          nullable: true
+        paused_until:
+          description: After five failures in a row, when Cru will try it again, RFC 3339 UTC. null when it is not
+            paused.
+          type: string
+          format: date-time
+          nullable: true
+        last_success_at:
+          description: The last delivery your endpoint accepted, RFC 3339 UTC.
+          type: string
+          format: date-time
+          nullable: true
+        last_failure_at:
+          description: The last delivery attempt that failed, RFC 3339 UTC.
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          description: RFC 3339 UTC.
+          type: string
+          format: date-time
+        updated_at:
+          description: RFC 3339 UTC.
+          type: string
+          format: date-time
+        signing_secret:
+          description: 'The secret every delivery is signed with: whsec_ and a base64 key. Shown in this answer only,
+            never again, so store it now, as you would a password.'
+          type: string
+    WebhookDelivery:
+      type: object
+      required:
+      - id
+      - event_id
+      - event_type
+      - webhook_id
+      - ref
+      - status
+      - attempts
+      - next_attempt_at
+      - last_http_status
+      - last_error
+      - last_response_id
+      - delivered_at
+      - created_at
+      properties:
+        id:
+          description: 'The delivery’s id: dlv_ and 24 hex characters, sent as the Cru-Delivery-Id header.'
+          type: string
+        event_id:
+          description: 'The event’s id: evt_ and 24 hex characters, sent as the webhook-id header.'
+          type: string
+        event_type:
+          description: sale.created, purchase.created or webhook.test.
+          type: string
+          x-extensible-enum:
+          - sale.created
+          - purchase.created
+          - webhook.test
+        webhook_id:
+          description: The webhook it is sent to.
+          type: string
+        ref:
+          description: 'What the event is about: a sale_ref such as stpo-5531, or a purchase_ref such as ord-90211.
+            null for a test.'
+          type: string
+          nullable: true
+        status:
+          description: pending, still being tried; delivered, your endpoint answered 2xx; failed, Cru has given up;
+            or cancelled, because the webhook was deleted or Cru cancelled it.
+          type: string
+          x-extensible-enum:
+          - pending
+          - delivered
+          - failed
+          - cancelled
+        attempts:
+          description: Times it has been sent.
+          type: integer
+        next_attempt_at:
+          description: When it will be tried next, RFC 3339 UTC. null unless pending.
+          type: string
+          format: date-time
+          nullable: true
+        last_http_status:
+          description: What your endpoint answered last time. null when it did not answer.
+          type: integer
+          nullable: true
+        last_error:
+          description: Why the last attempt failed, such as HTTP 500 or a timeout, for a person to read. null when it
+            succeeded.
+          type: string
+          nullable: true
+        last_response_id:
+          description: Your own id for the last request, from the first of X-Request-Id, Request-Id, X-Correlation-Id
+            or CF-Ray your endpoint answered with, to find it in your logs.
+          type: string
+          nullable: true
+        delivered_at:
+          description: When your endpoint accepted it, RFC 3339 UTC.
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          description: When it was queued, RFC 3339 UTC.
+          type: string
+          format: date-time
+    WebhookDeliveryDetail:
+      description: A delivery, with every attempt and the exact body sent.
+      type: object
+      required:
+      - id
+      - event_id
+      - event_type
+      - webhook_id
+      - ref
+      - status
+      - attempts
+      - next_attempt_at
+      - last_http_status
+      - last_error
+      - last_response_id
+      - delivered_at
+      - created_at
+      - attempt_history
+      - payload
+      properties:
+        id:
+          description: 'The delivery’s id: dlv_ and 24 hex characters, sent as the Cru-Delivery-Id header.'
+          type: string
+        event_id:
+          description: 'The event’s id: evt_ and 24 hex characters, sent as the webhook-id header.'
+          type: string
+        event_type:
+          description: sale.created, purchase.created or webhook.test.
+          type: string
+          x-extensible-enum:
+          - sale.created
+          - purchase.created
+          - webhook.test
+        webhook_id:
+          description: The webhook it is sent to.
+          type: string
+        ref:
+          description: 'What the event is about: a sale_ref such as stpo-5531, or a purchase_ref such as ord-90211.
+            null for a test.'
+          type: string
+          nullable: true
+        status:
+          description: pending, still being tried; delivered, your endpoint answered 2xx; failed, Cru has given up;
+            or cancelled, because the webhook was deleted or Cru cancelled it.
+          type: string
+          x-extensible-enum:
+          - pending
+          - delivered
+          - failed
+          - cancelled
+        attempts:
+          description: Times it has been sent.
+          type: integer
+        next_attempt_at:
+          description: When it will be tried next, RFC 3339 UTC. null unless pending.
+          type: string
+          format: date-time
+          nullable: true
+        last_http_status:
+          description: What your endpoint answered last time. null when it did not answer.
+          type: integer
+          nullable: true
+        last_error:
+          description: Why the last attempt failed, such as HTTP 500 or a timeout, for a person to read. null when it
+            succeeded.
+          type: string
+          nullable: true
+        last_response_id:
+          description: Your own id for the last request, from the first of X-Request-Id, Request-Id, X-Correlation-Id
+            or CF-Ray your endpoint answered with, to find it in your logs.
+          type: string
+          nullable: true
+        delivered_at:
+          description: When your endpoint accepted it, RFC 3339 UTC.
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          description: When it was queued, RFC 3339 UTC.
+          type: string
+          format: date-time
+        attempt_history:
+          description: Every attempt, first first. [] before the first.
+          type: array
+          items:
+            $ref: '#/components/schemas/WebhookAttempt'
+        payload:
+          description: The exact body sent, on every attempt.
+          $ref: '#/components/schemas/WebhookEvent'
+    WebhookAttempt:
+      type: object
+      required:
+      - attempt
+      - trigger
+      - started_at
+      - duration_ms
+      - http_status
+      - error
+      - response_id
+      - response_excerpt
+      properties:
+        attempt:
+          description: 1 for the first, and so on.
+          type: integer
+        trigger:
+          description: 'Why it was sent: auto, Cru’s own schedule; test; resend_api, a resend or retry you asked for;
+            or resend_admin, one Cru staff asked for.'
+          type: string
+          x-extensible-enum:
+          - auto
+          - test
+          - resend_api
+          - resend_admin
+        started_at:
+          description: RFC 3339 UTC.
+          type: string
+          format: date-time
+        duration_ms:
+          description: How long it took, in milliseconds.
+          type: integer
+        http_status:
+          description: What your endpoint answered. null when it did not answer.
+          type: integer
+          nullable: true
+        error:
+          description: Why it failed, for a person to read. null when it succeeded.
+          type: string
+          nullable: true
+        response_id:
+          description: Your id for the request, as last_response_id reads it.
+          type: string
+          nullable: true
+        response_excerpt:
+          description: The first 2 KB of what your endpoint answered. null when it sent nothing.
+          type: string
+          nullable: true
+    WebhookEventSummary:
+      description: One event, as GET /webhooks/events lists it.
+      type: object
+      required:
+      - id
+      - type
+      - ref
+      - created_at
+      properties:
+        id:
+          description: 'The event’s id: evt_ and 24 hex characters, the webhook-id header of its deliveries. Give the
+            last one you handled to after.'
+          type: string
+        type:
+          description: sale.created or purchase.created.
+          type: string
+          x-extensible-enum:
+          - sale.created
+          - purchase.created
+        ref:
+          description: 'What it is about: a sale_ref, for GET /trades/sales?sale_ref=, or a purchase_ref, for GET
+            /trades/purchases?purchase_ref=.'
+          type: string
+          nullable: true
+        created_at:
+          description: When it happened, RFC 3339 UTC.
+          type: string
+          format: date-time
+    WebhookEvent:
+      description: |-
+        The body of every webhook delivery, signed per Standard Webhooks: the webhook-id header is id, webhook-timestamp the Unix time it was signed, and webhook-signature v1, and the base64 HMAC-SHA256 of "{webhook-id}.{webhook-timestamp}.{body}" keyed with the base64-decoded part of the signing secret after whsec_. During the 24 hours after a rotation there are two signatures, separated by a space.
+
+        data depends on type: SaleCreatedData for sale.created, PurchaseCreatedData for purchase.created, WebhookTestData for webhook.test.
+      type: object
+      required:
+      - id
+      - type
+      - api_version
+      - created_at
+      - data
+      properties:
+        id:
+          description: 'The event’s id: evt_ and 24 hex characters, the same on every delivery of it, and the webhook-id
+            header. Deduplicate on it.'
+          type: string
+        type:
+          description: sale.created, purchase.created or webhook.test.
+          type: string
+          x-extensible-enum:
+          - sale.created
+          - purchase.created
+          - webhook.test
+        api_version:
+          description: The version of the body’s shape, 1.
+          type: string
+        created_at:
+          description: When it happened, RFC 3339 UTC.
+          type: string
+          format: date-time
+        data:
+          description: What happened, by type.
+          type: object
+    SaleCreatedData:
+      description: 'The data of a sale.created: what GET /trades/sales?sale_ref= gives for the sale, in your account’s
+        currency.'
+      type: object
+      required:
+      - sale_ref
+      - sales
+      properties:
+        sale_ref:
+          description: The sale, such as stpo-5531.
+          type: string
+        sales:
+          description: Its units, one sale per unit.
+          type: array
+          items:
+            $ref: '#/components/schemas/Sale'
+    PurchaseCreatedData:
+      description: 'The data of a purchase.created: what GET /trades/purchases?purchase_ref= gives for the order, in
+        the currency it was paid in.'
+      type: object
+      required:
+      - purchase_ref
+      - purchases
+      properties:
+        purchase_ref:
+          description: The purchase, such as ord-90211.
+          type: string
+        purchases:
+          description: Its lines.
+          type: array
+          items:
+            $ref: '#/components/schemas/Purchase'
+    WebhookTestData:
+      description: The data of a webhook.test.
+      type: object
+      required:
+      - webhook_id
+      - message
+      properties:
+        webhook_id:
+          description: The webhook the test was sent to.
+          type: string
+        message:
+          description: A sentence for people.
+          type: string
+    WebhookRetry:
+      type: object
+      required:
+      - queued
+      properties:
+        queued:
+          description: Deliveries queued again.
+          type: integer
+    CreateWebhookRequest:
+      type: object
+      required:
+      - url
+      properties:
+        url:
+          description: 'Where Cru sends events: an absolute https URL on port 443, at most 2,048 characters, with no
+            user name, password or #fragment, whose host resolves only to public internet addresses. Cru checks it
+            again before every send and never follows a redirect. One account cannot add the same URL twice.'
+          type: string
+          maxLength: 2048
+        event_types:
+          description: What to send it, sale.created, purchase.created, or both. Leave it out for every type there is,
+            including any Cru adds later.
+          type: array
+          items:
+            type: string
+            enum:
+            - sale.created
+            - purchase.created
+      additionalProperties: false
+    UpdateWebhookRequest:
+      type: object
+      properties:
+        url:
+          description: 'Where to send from now on, by the same rules as POST /webhooks. Another of your webhooks cannot
+            have it already.'
+          type: string
+          maxLength: 2048
+        event_types:
+          description: 'What to send it from now on: one or both of sale.created and purchase.created.'
+          type: array
+          items:
+            type: string
+            enum:
+            - sale.created
+            - purchase.created
+        enabled:
+          description: false to stop sending to it, true to start again, including after Cru switched it off. Switching
+            it on clears its failures and any pause.
+          type: boolean
+      additionalProperties: false
+    ListWebhooksResponse:
+      type: object
+      required:
+      - status
+      - message
+      - meta
+      - data
+      properties:
+        status:
+          description: OK on success, ERROR on failure. It describes the call, never a resource.
+          type: string
+          enum:
+          - OK
+        message:
+          description: 'A sentence for people. It is not stable: never branch on it.'
+          type: string
+        meta:
+          $ref: '#/components/schemas/Meta'
+        data:
+          type: object
+          required:
+          - webhooks
+          properties:
+            webhooks:
+              type: array
+              items:
+                $ref: '#/components/schemas/Webhook'
+    CreateWebhookResponse:
+      type: object
+      required:
+      - status
+      - message
+      - meta
+      - data
+      properties:
+        status:
+          description: OK on success, ERROR on failure. It describes the call, never a resource.
+          type: string
+          enum:
+          - OK
+        message:
+          description: 'A sentence for people. It is not stable: never branch on it.'
+          type: string
+        meta:
+          $ref: '#/components/schemas/Meta'
+        data:
+          type: object
+          required:
+          - webhook
+          properties:
+            webhook:
+              $ref: '#/components/schemas/WebhookWithSecret'
+    GetWebhookResponse:
+      type: object
+      required:
+      - status
+      - message
+      - meta
+      - data
+      properties:
+        status:
+          description: OK on success, ERROR on failure. It describes the call, never a resource.
+          type: string
+          enum:
+          - OK
+        message:
+          description: 'A sentence for people. It is not stable: never branch on it.'
+          type: string
+        meta:
+          $ref: '#/components/schemas/Meta'
+        data:
+          type: object
+          required:
+          - webhook
+          properties:
+            webhook:
+              $ref: '#/components/schemas/Webhook'
+    RetryWebhookResponse:
+      type: object
+      required:
+      - status
+      - message
+      - meta
+      - data
+      properties:
+        status:
+          description: OK on success, ERROR on failure. It describes the call, never a resource.
+          type: string
+          enum:
+          - OK
+        message:
+          description: 'A sentence for people. It is not stable: never branch on it.'
+          type: string
+        meta:
+          $ref: '#/components/schemas/Meta'
+        data:
+          $ref: '#/components/schemas/WebhookRetry'
+    WebhookDeliveryResponse:
+      type: object
+      required:
+      - status
+      - message
+      - meta
+      - data
+      properties:
+        status:
+          description: OK on success, ERROR on failure. It describes the call, never a resource.
+          type: string
+          enum:
+          - OK
+        message:
+          description: 'A sentence for people. It is not stable: never branch on it.'
+          type: string
+        meta:
+          $ref: '#/components/schemas/Meta'
+        data:
+          type: object
+          required:
+          - delivery
+          properties:
+            delivery:
+              $ref: '#/components/schemas/WebhookDelivery'
+    ListWebhookDeliveriesResponse:
+      type: object
+      required:
+      - status
+      - message
+      - meta
+      - data
+      properties:
+        status:
+          description: OK on success, ERROR on failure. It describes the call, never a resource.
+          type: string
+          enum:
+          - OK
+        message:
+          description: 'A sentence for people. It is not stable: never branch on it.'
+          type: string
+        meta:
+          $ref: '#/components/schemas/Meta'
+        data:
+          type: object
+          required:
+          - deliveries
+          properties:
+            deliveries:
+              type: array
+              items:
+                $ref: '#/components/schemas/WebhookDelivery'
+    GetWebhookDeliveryResponse:
+      type: object
+      required:
+      - status
+      - message
+      - meta
+      - data
+      properties:
+        status:
+          description: OK on success, ERROR on failure. It describes the call, never a resource.
+          type: string
+          enum:
+          - OK
+        message:
+          description: 'A sentence for people. It is not stable: never branch on it.'
+          type: string
+        meta:
+          $ref: '#/components/schemas/Meta'
+        data:
+          type: object
+          required:
+          - delivery
+          properties:
+            delivery:
+              $ref: '#/components/schemas/WebhookDeliveryDetail'
+    ListWebhookEventsResponse:
+      type: object
+      required:
+      - status
+      - message
+      - meta
+      - data
+      properties:
+        status:
+          description: OK on success, ERROR on failure. It describes the call, never a resource.
+          type: string
+          enum:
+          - OK
+        message:
+          description: 'A sentence for people. It is not stable: never branch on it.'
+          type: string
+        meta:
+          description: The envelope’s meta, whose pagination is by event id rather than offset.
+          type: object
+          required:
+          - version
+          - timestamp
+          - request_id
+          - pagination
+          properties:
+            version:
+              description: The envelope's contract version, 1.0.
+              type: string
+            timestamp:
+              description: When the response was made, RFC 3339 UTC.
+              type: string
+              format: date-time
+            request_id:
+              description: The id this request is traced by, also sent as the X-Request-Id header. Quote it to Cru
+                support.
+              type: string
+            pagination:
+              type: object
+              required:
+              - limit
+              - after
+              - has_more
+              properties:
+                limit:
+                  description: The limit applied.
+                  type: integer
+                after:
+                  description: after, as you sent it. null when you did not.
+                  type: string
+                  nullable: true
+                has_more:
+                  description: true when there are more events after the last one listed.
+                  type: boolean
+        data:
+          type: object
+          required:
+          - events
+          properties:
+            events:
+              type: array
+              items:
+                $ref: '#/components/schemas/WebhookEventSummary'
+    ResendWebhookEventResponse:
+      type: object
+      required:
+      - status
+      - message
+      - meta
+      - data
+      properties:
+        status:
+          description: OK on success, ERROR on failure. It describes the call, never a resource.
+          type: string
+          enum:
+          - OK
+        message:
+          description: 'A sentence for people. It is not stable: never branch on it.'
+          type: string
+        meta:
+          $ref: '#/components/schemas/Meta'
+        data:
+          type: object
+          required:
+          - deliveries
+          properties:
+            deliveries:
+              type: array
+              items:
+                $ref: '#/components/schemas/WebhookDelivery'
     Wine:
       type: object
       required:
@@ -6621,6 +8678,7 @@ components:
       - region
       - colour
       - product_url
+      - image_url
       - market_price
       - bids
       - offers
@@ -6657,6 +8715,11 @@ components:
           type: string
           format: uri
           nullable: true
+        image_url:
+          description: 'The bottle photo Cru’s site shows beside the wine, to show beside it in yours. Never null:
+            a wine Cru has no photo of gets the site’s placeholder bottle.'
+          type: string
+          format: uri
         market_price:
           description: 'Always present: Cru’s market price in data.currency, or null when it has none.'
           type: number
@@ -6682,6 +8745,7 @@ components:
       - region
       - colour
       - product_url
+      - image_url
       - market_price
       - short_name
       - country
@@ -6726,6 +8790,11 @@ components:
           type: string
           format: uri
           nullable: true
+        image_url:
+          description: 'The bottle photo Cru’s site shows beside the wine, to show beside it in yours. Never null:
+            a wine Cru has no photo of gets the site’s placeholder bottle.'
+          type: string
+          format: uri
         market_price:
           description: 'Always present: Cru’s market price in data.currency, or null when it has none.'
           type: number

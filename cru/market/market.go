@@ -707,6 +707,9 @@ type BidDetail struct {
 	PackSize *string `json:"pack_size"`
 	// The wine’s page on the Cru storefront for the market you called.
 	ProductURL *string `json:"product_url"`
+	// The bottle photo Cru’s site shows beside the wine, to show beside it in yours. Never null: a
+	// wine Cru has no photo of gets the site’s placeholder bottle.
+	ImageURL string `json:"image_url"`
 	// ISO 4217 currency of every price in this market: the currency of the market you called. Known
 	// values: GBP, USD, HKD, SGD, EUR, AED, CNY (the cru.Currency constants); others may appear.
 	Currency string `json:"currency"`
@@ -751,6 +754,7 @@ func (m *BidDetail) UnmarshalJSON(b []byte) error {
 	apijson.DecodeIntPtr(f, "vintage", &m.Vintage)
 	apijson.Decode(f, "pack_size", &m.PackSize)
 	apijson.Decode(f, "product_url", &m.ProductURL)
+	apijson.Decode(f, "image_url", &m.ImageURL)
 	apijson.Decode(f, "currency", &m.Currency)
 	apijson.Decode(f, "code", &m.Code)
 	apijson.DecodeFloat(f, "price", &m.Price)
@@ -843,6 +847,9 @@ type OfferDetail struct {
 	PackSize *string `json:"pack_size"`
 	// The wine’s page on the Cru storefront for the market you called.
 	ProductURL *string `json:"product_url"`
+	// The bottle photo Cru’s site shows beside the wine, to show beside it in yours. Never null: a
+	// wine Cru has no photo of gets the site’s placeholder bottle.
+	ImageURL string `json:"image_url"`
 	// ISO 4217 currency of every price in this market: the currency of the market you called. Known
 	// values: GBP, USD, HKD, SGD, EUR, AED, CNY (the cru.Currency constants); others may appear.
 	Currency string `json:"currency"`
@@ -904,6 +911,7 @@ func (m *OfferDetail) UnmarshalJSON(b []byte) error {
 	apijson.DecodeIntPtr(f, "vintage", &m.Vintage)
 	apijson.Decode(f, "pack_size", &m.PackSize)
 	apijson.Decode(f, "product_url", &m.ProductURL)
+	apijson.Decode(f, "image_url", &m.ImageURL)
 	apijson.Decode(f, "currency", &m.Currency)
 	apijson.Decode(f, "code", &m.Code)
 	apijson.DecodeFloat(f, "price", &m.Price)
@@ -932,6 +940,9 @@ type Wine struct {
 	PackSize *string `json:"pack_size"`
 	// The wine’s page on the Cru storefront for the market you called.
 	ProductURL *string `json:"product_url"`
+	// The bottle photo Cru’s site shows beside the wine, to show beside it in yours. Never null: a
+	// wine Cru has no photo of gets the site’s placeholder bottle.
+	ImageURL string `json:"image_url"`
 	// ISO 4217 currency of every price in this market: the currency of the market you called. Known
 	// values: GBP, USD, HKD, SGD, EUR, AED, CNY (the cru.Currency constants); others may appear.
 	Currency string `json:"currency"`
@@ -971,6 +982,7 @@ func (m *Wine) UnmarshalJSON(b []byte) error {
 	apijson.DecodeIntPtr(f, "vintage", &m.Vintage)
 	apijson.Decode(f, "pack_size", &m.PackSize)
 	apijson.Decode(f, "product_url", &m.ProductURL)
+	apijson.Decode(f, "image_url", &m.ImageURL)
 	apijson.Decode(f, "currency", &m.Currency)
 	apijson.Decode(f, "bids", &m.Bids)
 	apijson.DecodeFloatPtr(f, "market_price", &m.MarketPrice)

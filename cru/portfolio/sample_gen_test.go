@@ -22,6 +22,7 @@ func FuzzDecodeModels(f *testing.F) {
 		testkit.Decodes[LinePricing](t, b)
 		testkit.Decodes[LineWarehouse](t, b)
 		testkit.Decodes[Line](t, b)
+		testkit.Decodes[LineImport](t, b)
 		testkit.Decodes[Wine](t, b)
 	})
 }
@@ -50,6 +51,6 @@ var sampleOps = []testkit.Op{
 var sampleCalls = map[string]testkit.Sample{
 	"listPortfolio": {
 		Query: `{"lwin":"sample,sample","wine_name":"sample","current_location_code":"sample,sample","deliverable_warehouse_code":"UK_DRAK,HK_KERRY","stock_type":"cru,external","stock_status":"in_stock,in_transit","duty_paid":"true","condition_status":"verified,client_reserves","is_listed":"true","limit":"7","offset":"7"}`,
-		Data:  `{"wines":[{"lwin18":"sample","wine_name":"sample","vintage":7,"pack_size":"sample","product_url":"sample","currency":"GBP","total_quantity":7,"market_price":12.5,"lowest_offer_price":12.5,"highest_bid_price":12.5,"portfolio":[{"portfolio_id":"sample","stock_type":"cru","stock_status":"in_stock","duty_paid":true,"condition_status":"verified","condition_text":"sample","is_listed":true,"pricing":{"cost":12.5,"listing_price":12.5,"commission_percent":12.5,"commission":12.5,"settlement_fee":12.5,"net_proceeds":12.5},"photo_urls":["sample"],"quantity":7,"warehouse":{"location_type":"cru","current_location":"sample","current_location_code":"sample","deliverable_warehouse_code":"sample"}}]}]}`,
+		Data:  `{"wines":[{"lwin18":"sample","wine_name":"sample","vintage":7,"pack_size":"sample","product_url":"sample","image_url":"sample","currency":"GBP","total_quantity":7,"market_price":12.5,"lowest_offer_price":12.5,"highest_bid_price":12.5,"portfolio":[{"portfolio_id":"sample","stock_type":"cru","stock_status":"in_stock","duty_paid":true,"condition_status":"verified","condition_text":"sample","is_listed":true,"pricing":{"cost":12.5,"listing_price":12.5,"commission_percent":12.5,"commission":12.5,"settlement_fee":12.5,"net_proceeds":12.5},"import":{"file":"sample","imported_at":"2026-01-02T03:04:05Z"},"photo_urls":["sample"],"quantity":7,"warehouse":{"location_type":"cru","current_location":"sample","current_location_code":"sample","deliverable_warehouse_code":"sample"}}]}]}`,
 	},
 }

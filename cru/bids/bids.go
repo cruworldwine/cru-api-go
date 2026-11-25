@@ -301,6 +301,9 @@ type OwnBid struct {
 	PackSize *string `json:"pack_size"`
 	// The wine’s page on the Cru storefront for the market you called.
 	ProductURL *string `json:"product_url"`
+	// The bottle photo Cru’s site shows beside the wine, to show beside it in yours. Never null: a
+	// wine Cru has no photo of gets the site’s placeholder bottle.
+	ImageURL string `json:"image_url"`
 	// Gross price per unit you offered — before Cru’s commission — in the currency of the market
 	// you called. A bid placed in another currency is converted at today’s rate, as My Bids on Cru
 	// shows it.
@@ -369,6 +372,7 @@ func (m *OwnBid) UnmarshalJSON(b []byte) error {
 	apijson.DecodeIntPtr(f, "vintage", &m.Vintage)
 	apijson.Decode(f, "pack_size", &m.PackSize)
 	apijson.Decode(f, "product_url", &m.ProductURL)
+	apijson.Decode(f, "image_url", &m.ImageURL)
 	apijson.DecodeFloat(f, "price", &m.Price)
 	apijson.Decode(f, "currency", &m.Currency)
 	apijson.Decode(f, "bid_currency", &m.BidCurrency)

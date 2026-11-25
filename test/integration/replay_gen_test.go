@@ -13,6 +13,7 @@ import (
 	"github.com/cruworldwine/cru-api-go/cru/portfolio"
 	"github.com/cruworldwine/cru-api-go/cru/trades"
 	"github.com/cruworldwine/cru-api-go/cru/warehouses"
+	"github.com/cruworldwine/cru-api-go/cru/webhooks"
 	"github.com/cruworldwine/cru-api-go/cru/wines"
 )
 
@@ -21,6 +22,12 @@ var replayOps = []replayOp{
 		id: "ping", method: "GET", path: "/ping", kind: "get", key: "",
 		call: func(ctx context.Context, c *cru.Client, in *replayInput) (any, error) {
 			return c.Ping(ctx, in.opts...)
+		},
+	},
+	{
+		id: "getAccount", method: "GET", path: "/account", kind: "get", key: "",
+		call: func(ctx context.Context, c *cru.Client, in *replayInput) (any, error) {
+			return c.Account.Get(ctx, in.opts...)
 		},
 	},
 	{
@@ -294,6 +301,7 @@ var replayOps = []replayOp{
 			p := &trades.ListPurchasesParams{}
 			p.LWIN = in.list("lwin")
 			p.Status = in.list("status")
+			p.PurchaseRef = in.list("purchase_ref")
 			p.Sort = in.str("sort")
 			p.Direction = in.str("direction")
 			p.Limit = in.int("limit")
@@ -308,6 +316,7 @@ var replayOps = []replayOp{
 			p.LWIN = in.list("lwin")
 			p.Status = in.list("status")
 			p.DeliverableWarehouseCode = in.list("deliverable_warehouse_code")
+			p.SaleRef = in.list("sale_ref")
 			p.Sort = in.str("sort")
 			p.Direction = in.str("direction")
 			p.Limit = in.int("limit")
@@ -369,6 +378,101 @@ var replayOps = []replayOp{
 		id: "cancelConfirmation", method: "DELETE", path: "/confirmations/{code}", kind: "empty", key: "",
 		call: func(ctx context.Context, c *cru.Client, in *replayInput) (any, error) {
 			return nil, c.Confirmations.Cancel(ctx, in.path("code"), in.opts...)
+		},
+	},
+	{
+		id: "listWebhooks", method: "GET", path: "/webhooks", kind: "list", key: "webhooks",
+		call: func(ctx context.Context, c *cru.Client, in *replayInput) (any, error) {
+			return c.Webhooks.List(ctx, in.opts...)
+		},
+	},
+	{
+		id: "createWebhook", method: "POST", path: "/webhooks", kind: "get", key: "webhook",
+		call: func(ctx context.Context, c *cru.Client, in *replayInput) (any, error) {
+			p := &webhooks.CreateParams{}
+			in.decodeBody(p)
+			return c.Webhooks.Create(ctx, p, in.opts...)
+		},
+	},
+	{
+		id: "getWebhook", method: "GET", path: "/webhooks/{id}", kind: "get", key: "webhook",
+		call: func(ctx context.Context, c *cru.Client, in *replayInput) (any, error) {
+			return c.Webhooks.Get(ctx, in.path("id"), in.opts...)
+		},
+	},
+	{
+		id: "updateWebhook", method: "PATCH", path: "/webhooks/{id}", kind: "get", key: "webhook",
+		call: func(ctx context.Context, c *cru.Client, in *replayInput) (any, error) {
+			p := &webhooks.UpdateParams{}
+			in.decodeBody(p)
+			return c.Webhooks.Update(ctx, in.path("id"), p, in.opts...)
+		},
+	},
+	{
+		id: "deleteWebhook", method: "DELETE", path: "/webhooks/{id}", kind: "empty", key: "",
+		call: func(ctx context.Context, c *cru.Client, in *replayInput) (any, error) {
+			return nil, c.Webhooks.Remove(ctx, in.path("id"), in.opts...)
+		},
+	},
+	{
+		id: "testWebhook", method: "POST", path: "/webhooks/{id}/test", kind: "get", key: "delivery",
+		call: func(ctx context.Context, c *cru.Client, in *replayInput) (any, error) {
+			return c.Webhooks.Test(ctx, in.path("id"), in.opts...)
+		},
+	},
+	{
+		id: "rotateWebhookSecret", method: "POST", path: "/webhooks/{id}/rotate", kind: "get", key: "webhook",
+		call: func(ctx context.Context, c *cru.Client, in *replayInput) (any, error) {
+			return c.Webhooks.RotateSecret(ctx, in.path("id"), in.opts...)
+		},
+	},
+	{
+		id: "retryWebhook", method: "POST", path: "/webhooks/{id}/retry", kind: "get", key: "",
+		call: func(ctx context.Context, c *cru.Client, in *replayInput) (any, error) {
+			return c.Webhooks.Retry(ctx, in.path("id"), in.opts...)
+		},
+	},
+	{
+		id: "listWebhookDeliveries", method: "GET", path: "/webhooks/deliveries", kind: "page", key: "deliveries",
+		call: func(ctx context.Context, c *cru.Client, in *replayInput) (any, error) {
+			p := &webhooks.DeliveriesListParams{}
+			p.WebhookID = in.str("webhook_id")
+			p.Status = in.list("status")
+			p.EventType = in.list("event_type")
+			p.EventID = in.str("event_id")
+			p.Ref = in.str("ref")
+			p.Since = in.str("since")
+			p.Limit = in.int("limit")
+			p.Offset = in.int("offset")
+			return c.WebhookDeliveries.List(ctx, p, in.opts...)
+		},
+	},
+	{
+		id: "getWebhookDelivery", method: "GET", path: "/webhooks/deliveries/{id}", kind: "get", key: "delivery",
+		call: func(ctx context.Context, c *cru.Client, in *replayInput) (any, error) {
+			return c.WebhookDeliveries.Get(ctx, in.path("id"), in.opts...)
+		},
+	},
+	{
+		id: "resendWebhookDelivery", method: "POST", path: "/webhooks/deliveries/{id}/resend", kind: "get", key: "delivery",
+		call: func(ctx context.Context, c *cru.Client, in *replayInput) (any, error) {
+			return c.WebhookDeliveries.Resend(ctx, in.path("id"), in.opts...)
+		},
+	},
+	{
+		id: "listWebhookEvents", method: "GET", path: "/webhooks/events", kind: "list", key: "events",
+		call: func(ctx context.Context, c *cru.Client, in *replayInput) (any, error) {
+			p := &webhooks.EventsListParams{}
+			p.After = in.str("after")
+			p.Type = in.list("type")
+			p.Limit = in.int("limit")
+			return c.WebhookEvents.List(ctx, p, in.opts...)
+		},
+	},
+	{
+		id: "resendWebhookEvent", method: "POST", path: "/webhooks/events/{id}/resend", kind: "list", key: "deliveries",
+		call: func(ctx context.Context, c *cru.Client, in *replayInput) (any, error) {
+			return c.WebhookEvents.Resend(ctx, in.path("id"), in.opts...)
 		},
 	},
 }
