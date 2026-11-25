@@ -26,10 +26,16 @@ func (c *Client) Ping(ctx context.Context, opts ...RequestOption) (*Ping, error)
 
 // APIClient is found in Ping.Client.
 type APIClient struct {
+	// How the request was made: partner for a client key and secret, whether Cru issued it to a
+	// partner or to the customer themselves; customer for a connected app’s access token. Known
+	// values: partner, customer (the APIClientKind constants); others may appear.
+	Kind string `json:"kind"`
 	// live on production, test everywhere else.
 	Environment string `json:"environment"`
 	// The start of the client key that called, such as cru_live_ABCD... Null for a connected app.
 	KeyPrefix *string `json:"key_prefix"`
+	// The Cru account number of the customer the credential or token acts for, five digits.
+	AccountNumber *string `json:"account_number"`
 	// The account the credential acts for.
 	Organisation *string `json:"organisation"`
 	// The credential’s label, or the connected app’s registered name.
@@ -65,8 +71,10 @@ func (m *APIClient) UnmarshalJSON(b []byte) error {
 		return nil
 	}
 	*m = APIClient{raw: raw}
+	apijson.Decode(f, "kind", &m.Kind)
 	apijson.Decode(f, "environment", &m.Environment)
 	apijson.Decode(f, "key_prefix", &m.KeyPrefix)
+	apijson.Decode(f, "account_number", &m.AccountNumber)
 	apijson.Decode(f, "organisation", &m.Organisation)
 	apijson.Decode(f, "label", &m.Label)
 	apijson.Decode(f, "market", &m.Market)

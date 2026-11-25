@@ -261,6 +261,9 @@ type Line struct {
 	// for a supplier’s own stock.
 	IsListed bool        `json:"is_listed"`
 	Pricing  LinePricing `json:"pricing"`
+	// For wine held outside Cru that the customer added by uploading a wine list on Cru’s site: the
+	// list it came from. null for every other line.
+	Import *LineImport `json:"import"`
 	// Photos of the units in this line, on Cru’s media. [] when there are none.
 	PhotoURLs []string `json:"photo_urls"`
 	// Units in this line.
@@ -294,9 +297,42 @@ func (m *Line) UnmarshalJSON(b []byte) error {
 	apijson.Decode(f, "condition_text", &m.ConditionText)
 	apijson.Decode(f, "is_listed", &m.IsListed)
 	apijson.Decode(f, "pricing", &m.Pricing)
+	apijson.Decode(f, "import", &m.Import)
 	apijson.Decode(f, "photo_urls", &m.PhotoURLs)
 	apijson.DecodeInt(f, "quantity", &m.Quantity)
 	apijson.Decode(f, "warehouse", &m.Warehouse)
+	return nil
+}
+
+// LineImport is for wine held outside Cru that the customer added by uploading a wine list on Cru’s
+// site: the list it came from. null for every other line. It is found in Line.Import.
+type LineImport struct {
+	// The name of the file uploaded.
+	File *string `json:"file"`
+	// When it was uploaded, RFC 3339 UTC.
+	ImportedAt *string `json:"imported_at"`
+
+	raw json.RawMessage
+}
+
+// Raw returns the JSON the API sent for this LineImport, with every field, known or not.
+func (m *LineImport) Raw() json.RawMessage {
+	if m == nil {
+		return nil
+	}
+	return m.raw
+}
+
+// UnmarshalJSON implements json.Unmarshaler and keeps the JSON for Raw. A field whose
+// value does not fit its type is left unset instead of failing the decode.
+func (m *LineImport) UnmarshalJSON(b []byte) error {
+	raw, f := apijson.Split(b)
+	if raw == nil {
+		return nil
+	}
+	*m = LineImport{raw: raw}
+	apijson.Decode(f, "file", &m.File)
+	apijson.Decode(f, "imported_at", &m.ImportedAt)
 	return nil
 }
 
@@ -313,6 +349,9 @@ type Wine struct {
 	PackSize *string `json:"pack_size"`
 	// The wine’s page on the Cru storefront for the market you called.
 	ProductURL *string `json:"product_url"`
+	// The bottle photo Cru’s site shows beside the wine, to show beside it in yours. Never null: a
+	// wine Cru has no photo of gets the site’s placeholder bottle.
+	ImageURL string `json:"image_url"`
 	// ISO 4217 currency of every price here: the currency of the market you called. A price bought
 	// or listed in another currency is converted at today’s rate. Known values: GBP, USD, HKD, SGD,
 	// EUR, AED, CNY (the cru.Currency constants); others may appear.
@@ -357,6 +396,7 @@ func (m *Wine) UnmarshalJSON(b []byte) error {
 	apijson.DecodeIntPtr(f, "vintage", &m.Vintage)
 	apijson.Decode(f, "pack_size", &m.PackSize)
 	apijson.Decode(f, "product_url", &m.ProductURL)
+	apijson.Decode(f, "image_url", &m.ImageURL)
 	apijson.Decode(f, "currency", &m.Currency)
 	apijson.DecodeInt(f, "total_quantity", &m.TotalQuantity)
 	apijson.DecodeFloatPtr(f, "market_price", &m.MarketPrice)

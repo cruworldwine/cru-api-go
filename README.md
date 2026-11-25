@@ -78,8 +78,9 @@ client, err := cru.NewClient(
 
 ## Typed models
 
-Each resource is a package of its own under `cru/`, named after its path: `bids`, `offers`,
-`market`, `portfolio`, `trades`, `wines`, `warehouses`, `addresses`, `confirmations` and `photos`.
+Each resource is a package of its own under `cru/`, named after its path: `account`, `bids`,
+`offers`, `market`, `portfolio`, `trades`, `wines`, `warehouses`, `addresses`, `confirmations`,
+`photos` and `webhooks`.
 It holds the parameters of the resource's methods and the models they return:
 
 ```go
@@ -107,6 +108,53 @@ Parameters go in one struct per call: required ones are values, optional ones po
 package `core`: the page above is a `*core.Page[portfolio.Wine]`. The errors, request options and
 known values shared across resources are in `core` too, and package `cru` names them again, so
 code reads `cru.APIError`, `cru.ErrNotFound` and `cru.CurrencyGBP`.
+
+## Webhooks
+
+Rather than polling your trades, have Cru send your server a signed `sale.created` when you sell
+and a `purchase.created` when an order of yours is paid. Add a webhook with a client key and secret
+granted `webhooks:manage`, and keep the signing secret, which is shown once:
+
+```go
+import "github.com/cruworldwine/cru-api-go/cru/webhooks"
+
+hook, err := client.Webhooks.Create(ctx, &webhooks.CreateParams{URL: "https://example.com/cru/webhooks"})
+if err != nil {
+	return err
+}
+saveSecret(hook.SigningSecret)              // whsec_...
+_, err = client.Webhooks.Test(ctx, hook.ID) // Cru sends a webhook.test within seconds
+```
+
+Check every delivery with `webhooks.Verify` before trusting it. It returns an error wrapping
+`webhooks.ErrInvalidWebhook` for a body Cru did not sign with that secret, or one more than five
+minutes old, and accepts either signature during the day after `RotateSecret`:
+
+```go
+http.HandleFunc("/cru/webhooks", func(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(r.Body) // the raw bytes, before any JSON decoding
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	event, err := webhooks.Verify(body, r.Header, os.Getenv("CRU_WEBHOOK_SECRET"))
+	if err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	if event.Type == webhooks.EventTypeSaleCreated {
+		sale, err := event.SaleCreated() // sale.SaleRef, sale.Sales
+		if err == nil {
+			queueWork(event.ID, sale) // deduplicate on event.ID; answer first, work afterwards
+		}
+	}
+	w.WriteHeader(http.StatusOK)
+})
+```
+
+`client.WebhookDeliveries` shows every delivery and its attempts, and `client.WebhookEvents.List`
+with `After` lists every event since the last one you handled, to catch up after an outage.
+[The webhooks guide](https://developers.cruworldwine.com/guides/webhooks) has the rest.
 
 ## Documentation
 
@@ -188,6 +236,20 @@ the full description. Every method also takes trailing `...cru.RequestOption`.
 | `client.Confirmations.Confirm(ctx, code)` | `POST /confirmations/{code}` | `*core.Write[confirmations.ActionResult]` |
 | `client.Confirmations.Cancel(ctx, code)` | `DELETE /confirmations/{code}` | `error only` |
 | `client.Photos.Get(ctx, id)` | `GET /photos/{id}` | `[]byte` |
+| `client.Account.Get(ctx)` | `GET /account` | `*account.Summary` |
+| `client.Webhooks.List(ctx)` | `GET /webhooks` | `[]webhooks.Webhook` |
+| `client.Webhooks.Create(ctx, *webhooks.CreateParams)` | `POST /webhooks` | `*webhooks.WithSecret` |
+| `client.Webhooks.Get(ctx, id)` | `GET /webhooks/{id}` | `*webhooks.Webhook` |
+| `client.Webhooks.Update(ctx, id, *webhooks.UpdateParams)` | `PATCH /webhooks/{id}` | `*webhooks.Webhook` |
+| `client.Webhooks.Remove(ctx, id)` | `DELETE /webhooks/{id}` | `error only` |
+| `client.Webhooks.Test(ctx, id)` | `POST /webhooks/{id}/test` | `*webhooks.Delivery` |
+| `client.Webhooks.RotateSecret(ctx, id)` | `POST /webhooks/{id}/rotate` | `*webhooks.WithSecret` |
+| `client.Webhooks.Retry(ctx, id)` | `POST /webhooks/{id}/retry` | `*webhooks.Retry` |
+| `client.WebhookDeliveries.List(ctx, *webhooks.DeliveriesListParams)` | `GET /webhooks/deliveries` | `*core.Page[webhooks.Delivery]` |
+| `client.WebhookDeliveries.Get(ctx, id)` | `GET /webhooks/deliveries/{id}` | `*webhooks.DeliveryDetail` |
+| `client.WebhookDeliveries.Resend(ctx, id)` | `POST /webhooks/deliveries/{id}/resend` | `*webhooks.Delivery` |
+| `client.WebhookEvents.List(ctx, *webhooks.EventsListParams)` | `GET /webhooks/events` | `[]webhooks.EventSummary` |
+| `client.WebhookEvents.Resend(ctx, id)` | `POST /webhooks/events/{id}/resend` | `[]webhooks.Delivery` |
 <!-- /sdkgen:methods -->
 
 ## Contributing

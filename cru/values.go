@@ -6,6 +6,13 @@ import (
 	"github.com/cruworldwine/cru-api-go/cru/core"
 )
 
+// APIClientKind values are the known values of the fields that carry one, as package core declares
+// them. Others may appear, and decode as they are.
+const (
+	APIClientKindPartner  = core.APIClientKindPartner
+	APIClientKindCustomer = core.APIClientKindCustomer
+)
+
 // Action values are the known values of the fields that carry one, as package core declares them.
 // Others may appear, and decode as they are.
 const (

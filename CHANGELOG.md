@@ -7,6 +7,35 @@ release may change the API incompatibly, and says so here.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-25
+
+Every change is an addition: code written for 0.2.0 compiles and behaves as before.
+
+### Added
+
+- Webhooks, in package `webhooks`. `client.Webhooks`: `List`, `Create`, whose answer carries the
+  signing secret once, `Get`, `Update`, `Remove`, `Test`, `RotateSecret` and `Retry`.
+  `client.WebhookDeliveries`: `List`, paged, `Get`, with every attempt and the body sent, and
+  `Resend`. `client.WebhookEvents`: `List`, with `After` to catch up from the last event handled,
+  and `Resend`. Each needs `webhooks:manage`, on a client key and secret.
+- `webhooks.Verify(body, header, secret)`, which checks a delivery's Standard Webhooks signature
+  (either one, during the day after a rotation) and its timestamp (within `webhooks.Tolerance`,
+  five minutes), and returns its `*webhooks.Event`, or an error wrapping `webhooks.ErrInvalidWebhook`.
+  `VerifyAt` takes the time and tolerance. `Event.SaleCreated`, `PurchaseCreated` and `TestData`
+  decode its data by type.
+- `client.Account.Get`, `GET /account`, in package `account`: the account's contact details and
+  company users, its membership, and the figures on Cru's Account Summary page. Needs
+  `account:read`, which a connected app gets only by asking for it by name.
+- `ImageURL`, the wine's bottle photo, on every wine: `market.Wine`, `market.BidDetail`,
+  `market.OfferDetail`, `bids.OwnBid`, `portfolio.Wine`, `wines.Wine`, `wines.Detail`,
+  `trades.Purchase` and `trades.Sale`.
+- `PurchaseRef` on `trades.Purchase`, `SaleRef` and `TradeID` on `trades.Sale`, and the
+  `PurchaseRef` and `SaleRef` filters on `trades.ListPurchasesParams` and `trades.ListSalesParams`,
+  which take up to 50.
+- `Kind` (`cru.APIClientKindPartner` or `cru.APIClientKindCustomer`) and `AccountNumber` on
+  `Ping`'s client, and `Import` on `portfolio.Line`: the wine list a line held outside Cru was
+  uploaded from.
+
 ## [0.2.0] - 2026-10-26
 
 It changes the API incompatibly (see **Changed (breaking)**), hence 0.2.0 rather than 0.1.1.
@@ -147,6 +176,7 @@ It changes the API incompatibly (see **Changed (breaking)**), hence 0.2.0 rather
 - Models that never fail on fields or values added later, and keep their JSON for `Raw` and
   `Field`.
 
-[Unreleased]: https://github.com/cruworldwine/cru-api-go/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/cruworldwine/cru-api-go/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/cruworldwine/cru-api-go/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/cruworldwine/cru-api-go/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/cruworldwine/cru-api-go/releases/tag/v0.1.0

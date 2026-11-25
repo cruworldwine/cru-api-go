@@ -3,6 +3,7 @@
 package cru
 
 import (
+	"github.com/cruworldwine/cru-api-go/cru/account"
 	"github.com/cruworldwine/cru-api-go/cru/addresses"
 	"github.com/cruworldwine/cru-api-go/cru/bids"
 	"github.com/cruworldwine/cru-api-go/cru/confirmations"
@@ -12,15 +13,18 @@ import (
 	"github.com/cruworldwine/cru-api-go/cru/portfolio"
 	"github.com/cruworldwine/cru-api-go/cru/trades"
 	"github.com/cruworldwine/cru-api-go/cru/warehouses"
+	"github.com/cruworldwine/cru-api-go/cru/webhooks"
 	"github.com/cruworldwine/cru-api-go/cru/wines"
 	"github.com/cruworldwine/cru-api-go/internal/caller"
 )
 
 // Resources groups the endpoints by resource. Client embeds it, so they are reached as
-// client.Warehouses, client.InbondWarehouses and so on. Each resource's service, the parameters of
-// its methods and the models they return are in the package named after its path: warehouses,
-// wines, market and so on.
+// client.Account, client.Warehouses and so on. Each resource's service, the parameters of its
+// methods and the models they return are in the package named after its path: account, warehouses,
+// wines and so on.
 type Resources struct {
+	// Account calls GET /account.
+	Account *account.Service
 	// Warehouses calls GET /warehouses and GET /warehouses/{code}.
 	Warehouses *warehouses.Service
 	// InbondWarehouses calls GET /warehouses/inbond, POST /warehouses/inbond and
@@ -51,20 +55,33 @@ type Resources struct {
 	// Confirmations calls DELETE /confirmations/{code}, GET /confirmations/{code} and
 	// POST /confirmations/{code}.
 	Confirmations *confirmations.Service
+	// Webhooks calls GET /webhooks, POST /webhooks, DELETE /webhooks/{id}, GET /webhooks/{id},
+	// PATCH /webhooks/{id}, POST /webhooks/{id}/retry, POST /webhooks/{id}/rotate and
+	// POST /webhooks/{id}/test.
+	Webhooks *webhooks.Service
+	// WebhookDeliveries calls GET /webhooks/deliveries, GET /webhooks/deliveries/{id} and
+	// POST /webhooks/deliveries/{id}/resend.
+	WebhookDeliveries *webhooks.DeliveriesService
+	// WebhookEvents calls GET /webhooks/events and POST /webhooks/events/{id}/resend.
+	WebhookEvents *webhooks.EventsService
 }
 
 func newResources(c *caller.Caller) Resources {
 	return Resources{
-		Warehouses:       caller.NewService[warehouses.Service](c),
-		InbondWarehouses: caller.NewService[warehouses.InbondService](c),
-		Wines:            caller.NewService[wines.Service](c),
-		Market:           caller.NewService[market.Service](c),
-		Photos:           caller.NewService[photos.Service](c),
-		Bids:             caller.NewService[bids.Service](c),
-		Offers:           caller.NewService[offers.Service](c),
-		Portfolio:        caller.NewService[portfolio.Service](c),
-		Trades:           caller.NewService[trades.Service](c),
-		InbondAddresses:  caller.NewService[addresses.InbondService](c),
-		Confirmations:    caller.NewService[confirmations.Service](c),
+		Account:           caller.NewService[account.Service](c),
+		Warehouses:        caller.NewService[warehouses.Service](c),
+		InbondWarehouses:  caller.NewService[warehouses.InbondService](c),
+		Wines:             caller.NewService[wines.Service](c),
+		Market:            caller.NewService[market.Service](c),
+		Photos:            caller.NewService[photos.Service](c),
+		Bids:              caller.NewService[bids.Service](c),
+		Offers:            caller.NewService[offers.Service](c),
+		Portfolio:         caller.NewService[portfolio.Service](c),
+		Trades:            caller.NewService[trades.Service](c),
+		InbondAddresses:   caller.NewService[addresses.InbondService](c),
+		Confirmations:     caller.NewService[confirmations.Service](c),
+		Webhooks:          caller.NewService[webhooks.Service](c),
+		WebhookDeliveries: caller.NewService[webhooks.DeliveriesService](c),
+		WebhookEvents:     caller.NewService[webhooks.EventsService](c),
 	}
 }

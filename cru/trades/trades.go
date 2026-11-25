@@ -34,6 +34,10 @@ type ListPurchasesParams struct {
 	// with no units stored with Cru matches none. Anything else is refused with
 	// VALIDATION_UNSUPPORTED_VALUE. One of: in_portfolio, for_sale, sold, in_transit, delivered.
 	Status []string `json:"-"`
+	// Only the lines of these purchases: up to 50 comma-separated, in any case, each ord- and a
+	// number, as each purchase’s purchase_ref and a purchase.created webhook’s data.purchase_ref
+	// give it. Anything else is refused with VALIDATION_INVALID_VALUE.
+	PurchaseRef []string `json:"-"`
 	// What to order by: traded_at, the date of the order, the only choice. One of: traded_at.
 	Sort *string `json:"-"`
 	// desc for newest first, or asc for oldest first. One of: desc, asc.
@@ -52,6 +56,7 @@ func (p *ListPurchasesParams) query() url.Values {
 	}
 	apiquery.SetList(q, "lwin", p.LWIN)
 	apiquery.SetList(q, "status", p.Status)
+	apiquery.SetList(q, "purchase_ref", p.PurchaseRef)
 	apiquery.Set(q, "sort", p.Sort)
 	apiquery.Set(q, "direction", p.Direction)
 	apiquery.Set(q, "limit", p.Limit)
@@ -90,6 +95,10 @@ type ListSalesParams struct {
 	// unknown code is refused with VALIDATION_INVALID_VALUE. One of: UK_DRAK, HK_KERRY, SG_TOLL,
 	// FR_DARTESS, US_NAPA.
 	DeliverableWarehouseCode []string `json:"-"`
+	// Only the units of these sales: up to 50 comma-separated, in any case, each stpo-, lx-, csi-
+	// or esp- and a number, as each sale’s sale_ref and a sale.created webhook’s data.sale_ref give
+	// it. Anything else is refused with VALIDATION_INVALID_VALUE.
+	SaleRef []string `json:"-"`
 	// What to order by: traded_at, the date of the sale, the only choice. One of: traded_at.
 	Sort *string `json:"-"`
 	// desc for newest first, or asc for oldest first. One of: desc, asc.
@@ -109,6 +118,7 @@ func (p *ListSalesParams) query() url.Values {
 	apiquery.SetList(q, "lwin", p.LWIN)
 	apiquery.SetList(q, "status", p.Status)
 	apiquery.SetList(q, "deliverable_warehouse_code", p.DeliverableWarehouseCode)
+	apiquery.SetList(q, "sale_ref", p.SaleRef)
 	apiquery.Set(q, "sort", p.Sort)
 	apiquery.Set(q, "direction", p.Direction)
 	apiquery.Set(q, "limit", p.Limit)
@@ -129,7 +139,9 @@ func (p *ListSalesParams) query() url.Values {
 // warehouse deliver_to names, by deliver_by. status says how far it has got: transfer_needed until
 // a transfer to Cru is booked, then awaiting_transfer, with transfer_ref naming the transfer;
 // on_purchase_order while it is due in on a purchase order; and delivered_to_cru once it is there.
-// Wine stored with Cru has no deliver_to, and is always delivered_to_cru.
+// A sale from your offers feed (or Liv-ex) is on_purchase_order until every unit of it has reached
+// Cru, then delivered_to_cru; one filled from wine already stored with Cru is delivered_to_cru at
+// once. Wine stored with Cru has no deliver_to, and is always delivered_to_cru.
 //
 // GET /trades/sales. Scope: trades:read.
 //
@@ -138,7 +150,8 @@ func (s *Service) ListSales(ctx context.Context, params *ListSalesParams, opts .
 	return caller.GetPage[Sale](ctx, s.caller, caller.Endpoint{Method: http.MethodGet, Path: "/trades/sales", Query: params.query(), Key: "sales", Opts: opts})
 }
 
-// Purchase is returned by Service.ListPurchases.
+// Purchase is returned by Service.ListPurchases, and found in
+// webhooks.PurchaseCreatedData.Purchases.
 type Purchase struct {
 	// The 18-digit LWIN: wine, vintage and pack together. Match on all 18 digits.
 	LWIN18 string `json:"lwin18"`
@@ -148,6 +161,9 @@ type Purchase struct {
 	Vintage *int64 `json:"vintage"`
 	// Pack format, for example 6x75cl.
 	PackSize *string `json:"pack_size"`
+	// The bottle photo Cru’s site shows beside the wine, to show beside it in yours. Never null: a
+	// wine Cru has no photo of gets the site’s placeholder bottle.
+	ImageURL string `json:"image_url"`
 	// Units in this order line, less any cancelled or refunded.
 	Quantity int64 `json:"quantity"`
 	// What you paid per unit.
@@ -161,6 +177,10 @@ type Purchase struct {
 	Reference string `json:"reference"`
 	// When the order was placed, RFC 3339 UTC.
 	TradedAt string `json:"traded_at"`
+	// The purchase this line is part of, ord- and a number, such as ord-90211: the same on every
+	// line of one order. A purchase.created webhook names it as data.purchase_ref, and the
+	// purchase_ref filter takes it.
+	PurchaseRef string `json:"purchase_ref"`
 	// The order’s status, as Cru’s site labels it, such as “Paid and Processing”.
 	OrderStatus *string `json:"order_status"`
 	// The order’s page on Cru Markets, on the site it was placed on. It opens for the customer
@@ -198,12 +218,14 @@ func (m *Purchase) UnmarshalJSON(b []byte) error {
 	apijson.Decode(f, "wine_name", &m.WineName)
 	apijson.DecodeIntPtr(f, "vintage", &m.Vintage)
 	apijson.Decode(f, "pack_size", &m.PackSize)
+	apijson.Decode(f, "image_url", &m.ImageURL)
 	apijson.DecodeInt(f, "quantity", &m.Quantity)
 	apijson.DecodeFloat(f, "price", &m.Price)
 	apijson.DecodeFloat(f, "total", &m.Total)
 	apijson.Decode(f, "currency", &m.Currency)
 	apijson.Decode(f, "reference", &m.Reference)
 	apijson.Decode(f, "traded_at", &m.TradedAt)
+	apijson.Decode(f, "purchase_ref", &m.PurchaseRef)
 	apijson.Decode(f, "order_status", &m.OrderStatus)
 	apijson.Decode(f, "order_url", &m.OrderURL)
 	apijson.Decode(f, "invoice_number", &m.InvoiceNumber)
@@ -257,7 +279,7 @@ func (m *PurchaseUnit) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// Sale is returned by Service.ListSales.
+// Sale is returned by Service.ListSales, and found in webhooks.SaleCreatedData.Sales.
 type Sale struct {
 	// The 18-digit LWIN: wine, vintage and pack together. Match on all 18 digits.
 	LWIN18 string `json:"lwin18"`
@@ -267,6 +289,9 @@ type Sale struct {
 	Vintage *int64 `json:"vintage"`
 	// Pack format, for example 6x75cl.
 	PackSize *string `json:"pack_size"`
+	// The bottle photo Cru’s site shows beside the wine, to show beside it in yours. Never null: a
+	// wine Cru has no photo of gets the site’s placeholder bottle.
+	ImageURL string `json:"image_url"`
 	// Always 1: each unit sold is its own sale.
 	Quantity int64 `json:"quantity"`
 	// What the unit sold for, the Sold list’s Sold For. For wine held outside Cru, that is after
@@ -283,6 +308,15 @@ type Sale struct {
 	Reference *string `json:"reference"`
 	// When it sold, RFC 3339 UTC.
 	TradedAt *string `json:"traded_at"`
+	// The sale this unit was part of, a prefix and a number: stpo- for wine sold from a supplier’s
+	// stock, shared by every unit of that sale, as is lx- for a sale through Liv-ex; csi- for one
+	// unit stored with Cru; esp- for one unit held outside Cru. A sale.created webhook names it as
+	// data.sale_ref, and the sale_ref filter takes it.
+	SaleRef string `json:"sale_ref"`
+	// The trade’s own number on a stpo- or lx- sale: the supplier’s purchase order or trade number,
+	// or the Liv-ex trade number, LX and digits. null until the order is placed with the supplier,
+	// and always on csi- and esp- sales.
+	TradeID *string `json:"trade_id"`
 	// The unit’s Cru ID.
 	CruID *int64 `json:"cru_id"`
 	// The transfer that brings it to Cru, such as SM00004417, once one is booked.
@@ -315,9 +349,11 @@ type Sale struct {
 	// without one, two weeks after it sold. null for wine stored with Cru.
 	DeliverBy *string `json:"deliver_by"`
 	// Where the wine is in reaching Cru, as the status filter takes it: transfer_needed,
-	// awaiting_transfer, on_purchase_order or delivered_to_cru. Wine stored with Cru is always
-	// delivered_to_cru. Known values: transfer_needed, awaiting_transfer, on_purchase_order,
-	// delivered_to_cru (the SaleStatus constants); others may appear.
+	// awaiting_transfer, on_purchase_order or delivered_to_cru. A sale from your offers feed is
+	// on_purchase_order until every unit of it has reached Cru, unless it was filled from wine
+	// already stored with Cru. Wine stored with Cru is always delivered_to_cru. Known values:
+	// transfer_needed, awaiting_transfer, on_purchase_order, delivered_to_cru (the SaleStatus
+	// constants); others may appear.
 	Status *string `json:"status"`
 
 	raw json.RawMessage
@@ -343,12 +379,15 @@ func (m *Sale) UnmarshalJSON(b []byte) error {
 	apijson.Decode(f, "wine_name", &m.WineName)
 	apijson.DecodeIntPtr(f, "vintage", &m.Vintage)
 	apijson.Decode(f, "pack_size", &m.PackSize)
+	apijson.Decode(f, "image_url", &m.ImageURL)
 	apijson.DecodeInt(f, "quantity", &m.Quantity)
 	apijson.DecodeFloatPtr(f, "price", &m.Price)
 	apijson.DecodeFloatPtr(f, "total", &m.Total)
 	apijson.Decode(f, "currency", &m.Currency)
 	apijson.Decode(f, "reference", &m.Reference)
 	apijson.Decode(f, "traded_at", &m.TradedAt)
+	apijson.Decode(f, "sale_ref", &m.SaleRef)
+	apijson.Decode(f, "trade_id", &m.TradeID)
 	apijson.DecodeIntPtr(f, "cru_id", &m.CruID)
 	apijson.Decode(f, "transfer_ref", &m.TransferRef)
 	apijson.DecodeFloatPtr(f, "cost", &m.Cost)

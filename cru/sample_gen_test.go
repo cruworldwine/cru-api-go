@@ -35,6 +35,6 @@ var sampleOps = []testkit.Op{
 
 var sampleCalls = map[string]testkit.Sample{
 	"ping": {
-		Data: `{"pong":true,"client":{"environment":"sample","key_prefix":"sample","organisation":"sample","label":"sample","market":"uk","currency":"GBP","scopes":["sample"],"expires_at":"2026-01-02T03:04:05Z"}}`,
+		Data: `{"pong":true,"client":{"kind":"partner","environment":"sample","key_prefix":"sample","account_number":"sample","organisation":"sample","label":"sample","market":"uk","currency":"GBP","scopes":["sample"],"expires_at":"2026-01-02T03:04:05Z"}}`,
 	},
 }

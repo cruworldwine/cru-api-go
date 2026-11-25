@@ -32,6 +32,7 @@ var sampleOps = []testkit.Op{
 			p := &ListPurchasesParams{}
 			p.LWIN = in.List("lwin")
 			p.Status = in.List("status")
+			p.PurchaseRef = in.List("purchase_ref")
 			p.Sort = in.Str("sort")
 			p.Direction = in.Str("direction")
 			p.Limit = in.Int("limit")
@@ -46,6 +47,7 @@ var sampleOps = []testkit.Op{
 			p.LWIN = in.List("lwin")
 			p.Status = in.List("status")
 			p.DeliverableWarehouseCode = in.List("deliverable_warehouse_code")
+			p.SaleRef = in.List("sale_ref")
 			p.Sort = in.Str("sort")
 			p.Direction = in.Str("direction")
 			p.Limit = in.Int("limit")
@@ -57,11 +59,11 @@ var sampleOps = []testkit.Op{
 
 var sampleCalls = map[string]testkit.Sample{
 	"listPurchases": {
-		Query: `{"lwin":"sample,sample","status":"in_portfolio,for_sale","sort":"traded_at","direction":"desc","limit":"7","offset":"7"}`,
-		Data:  `{"purchases":[{"lwin18":"sample","wine_name":"sample","vintage":7,"pack_size":"sample","quantity":7,"price":12.5,"total":12.5,"currency":"GBP","reference":"sample","traded_at":"2026-01-02T03:04:05Z","order_status":"sample","order_url":"sample","invoice_number":"sample","invoice_url":"sample","units":[{"cru_id":7,"warehouse_ref":"sample","deliverable_warehouse_code":"sample","condition_status":"verified","status":"in_portfolio"}]}]}`,
+		Query: `{"lwin":"sample,sample","status":"in_portfolio,for_sale","purchase_ref":"sample,sample","sort":"traded_at","direction":"desc","limit":"7","offset":"7"}`,
+		Data:  `{"purchases":[{"lwin18":"sample","wine_name":"sample","vintage":7,"pack_size":"sample","image_url":"sample","quantity":7,"price":12.5,"total":12.5,"currency":"GBP","reference":"sample","traded_at":"2026-01-02T03:04:05Z","purchase_ref":"sample","order_status":"sample","order_url":"sample","invoice_number":"sample","invoice_url":"sample","units":[{"cru_id":7,"warehouse_ref":"sample","deliverable_warehouse_code":"sample","condition_status":"verified","status":"in_portfolio"}]}]}`,
 	},
 	"listSales": {
-		Query: `{"lwin":"sample,sample","status":"transfer_needed,awaiting_transfer","deliverable_warehouse_code":"UK_DRAK,HK_KERRY","sort":"traded_at","direction":"desc","limit":"7","offset":"7"}`,
-		Data:  `{"sales":[{"lwin18":"sample","wine_name":"sample","vintage":7,"pack_size":"sample","quantity":7,"price":12.5,"total":12.5,"currency":"GBP","reference":"sample","traded_at":"2026-01-02T03:04:05Z","cru_id":7,"transfer_ref":"sample","cost":12.5,"sold_price":12.5,"commission_percent":12.5,"commission":12.5,"settlement_fee":12.5,"net_proceeds":12.5,"profit_loss":12.5,"profit_loss_percent":12.5,"deliver_to":"sample","deliverable_warehouse_code":"sample","deliver_by":"2026-01-02","status":"transfer_needed"}]}`,
+		Query: `{"lwin":"sample,sample","status":"transfer_needed,awaiting_transfer","deliverable_warehouse_code":"UK_DRAK,HK_KERRY","sale_ref":"sample,sample","sort":"traded_at","direction":"desc","limit":"7","offset":"7"}`,
+		Data:  `{"sales":[{"lwin18":"sample","wine_name":"sample","vintage":7,"pack_size":"sample","image_url":"sample","quantity":7,"price":12.5,"total":12.5,"currency":"GBP","reference":"sample","traded_at":"2026-01-02T03:04:05Z","sale_ref":"sample","trade_id":"sample","cru_id":7,"transfer_ref":"sample","cost":12.5,"sold_price":12.5,"commission_percent":12.5,"commission":12.5,"settlement_fee":12.5,"net_proceeds":12.5,"profit_loss":12.5,"profit_loss_percent":12.5,"deliver_to":"sample","deliverable_warehouse_code":"sample","deliver_by":"2026-01-02","status":"transfer_needed"}]}`,
 	},
 }

@@ -156,7 +156,8 @@ func Always(status int, body string) func(http.ResponseWriter, *http.Request, in
 // BidJSON is an invented bid, as GET /bids/{code} answers it.
 func BidJSON(code string) string {
 	return `{"code":"` + code + `","client_ref":null,"lwin18":"` + LWIN + `","wine_name":"Chateau Exemple 2015",
-		"vintage":2015,"pack_size":"6x75cl","product_url":null,"price":1200.5,"currency":"GBP","bid_currency":"GBP",
+		"vintage":2015,"pack_size":"6x75cl","product_url":null,"image_url":"https://uk.cruworldwine.com/media/catalog/product/placeholder.png",
+		"price":1200.5,"currency":"GBP","bid_currency":"GBP",
 		"quantity":2,"quantity_matched":0,"quantity_open":2,"order_numbers":[],"order_urls":[],"status":"live",
 		"renewable":false,"market":"uk","local_only":false,"auto_transfer":false,"expires_on":"2027-01-01",
 		"created_at":"2026-01-01T00:00:00Z","updated_at":null}`

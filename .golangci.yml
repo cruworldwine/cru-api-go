@@ -29,8 +29,8 @@ linters:
         # which is the order their docs read in.
         - fieldalignment
     misspell:
-      # The invented wines in the tests are French: Chateau Exemple.
-      ignore-rules: [exemple]
+      # The invented wines in the tests are French: Chateau Exemple. stpo- starts a sale_ref.
+      ignore-rules: [exemple, stpo]
     revive:
       rules:
         - name: exported
